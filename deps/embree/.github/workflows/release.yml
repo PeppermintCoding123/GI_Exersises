@@ -1,0 +1,381 @@
+## Copyright 2022 Intel Corporation
+## SPDX-License-Identifier: Apache-2.0
+
+name: release
+
+permissions: read-all
+
+on:
+  schedule:
+    - cron:  '01 00 * * *'
+  workflow_dispatch:
+
+jobs:
+
+####################################################################
+# CPU Builds and Tests
+####################################################################
+  build-windows:
+    secrets: inherit
+    uses: intel-innersource/libraries.devops.renderkit.workflows/.github/workflows/windows.yml@main
+    with:
+      runs-on: '[ "Windows", "build"]'
+      artifact-out: build-windows
+      artifact-path: ./build/embree-*.zip
+      dpcpp-version: intel-llvm/v6.2.0
+      cmd: |
+        $opts  = "-DCMAKE_BUILD_TYPE=Release"
+        $opts += " -DBUILD_TESTING=ON"
+        $opts += " -DEMBREE_TUTORIALS=ON"
+        $opts += " -DEMBREE_ISPC_SUPPORT=ON"
+        $opts += " -DEMBREE_TESTING_INTENSITY=3"
+        $opts += " -DEMBREE_MAX_ISA=AVX512"
+        $opts += " -DEMBREE_INSTALL_DEPENDENCIES=ON"
+        $opts += " -DEMBREE_TESTING_INSTALL_TESTS=ON"
+        $opts += " -DCMAKE_INSTALL_TESTDIR=testing"
+        $opts += " -DEMBREE_ZIP_MODE=ON"
+
+        cmake -S superbuild -B build -G Ninja -D EMBREE_EXTRA_OPTIONS="$opts"
+        cmake --build build --config Release
+        cmake --build build/embree/build --config Release --target build
+        Copy-Item build/embree/build/embree-*.zip build/ -Force
+
+  windows-test:
+    secrets: inherit
+    uses: intel-innersource/libraries.devops.renderkit.workflows/.github/workflows/windows.yml@main
+    needs: ["build-windows"]
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [avx2, avx512]
+    with:
+      runs-on: '[ "Windows", "${{ matrix.platform }}" ]'
+      artifact-in: build-windows
+      cmd: |
+        $EmbreeDir = .\\scripts\\prepare-test-files.ps1 -TestType ctest
+        .\\scripts\\run-tests.ps1 -TestType ctest -EmbreeDir $EmbreeDir -CtestConfig Release
+
+  build-macosx-x86_64:
+    secrets: inherit
+    uses: intel-innersource/libraries.devops.renderkit.workflows/.github/workflows/macos.yml@main
+    with:
+      runs-on: '[ "macOS", "build", "x86_64" ]'
+      cmd: |
+        opts="-DCMAKE_BUILD_TYPE=Release"
+        opts+=" -DBUILD_TESTING=ON"
+        opts+=" -DEMBREE_TUTORIALS=ON"
+        opts+=" -DEMBREE_ISPC_SUPPORT=ON"
+        opts+=" -DEMBREE_TESTING_INTENSITY=3"
+        opts+=" -DCMAKE_CXX_COMPILER=clang++"
+        opts+=" -DCMAKE_C_COMPILER=clang"
+        opts+=" -DCMAKE_INSTALL_BINDIR=bin"
+        opts+=" -DCMAKE_INSTALL_DOCDIR=doc"
+        opts+=" -DCMAKE_INSTALL_INCLUDEDIR=include"
+        opts+=" -DCMAKE_INSTALL_TESTDIR=testing"
+        opts+=" -DCMAKE_MACOSX_RPATH=ON"
+        opts+=" -DCMAKE_SKIP_INSTALL_RPATH=OFF"
+        opts+=" -DEMBREE_BUILD_GLFW_FROM_SOURCE=ON"
+        opts+=" -DEMBREE_INSTALL_DEPENDENCIES=ON"
+        opts+=" -DEMBREE_MAX_ISA=AVX512"
+        opts+=" -DEMBREE_PATCH_GLFW_SOURCE=ON"
+        opts+=" -DEMBREE_TASKING_SYSTEM=TBB"
+        opts+=" -DEMBREE_TESTING_INSTALL_TESTS=ON"
+        opts+=" -DEMBREE_ZIP_MODE=ON"
+        opts+=" -DCPACK_PRE_BUILD_SCRIPTS=$CPACK_PRE_BUILD_SIGNING_SCRIPT"
+
+        cmake -S superbuild -B build -D EMBREE_EXTRA_OPTIONS="$opts"
+        cmake --build build --config Release
+        cmake --build build/embree/build --config Release --target build
+        cp build/embree/build/embree-*.zip build/
+      notarize-package: ./build/embree-*.x86_64.macosx.zip
+      artifact-out: build-macosx-x86_64
+      artifact-path: ./build/embree-*.zip
+
+  test-macosx-x86_64:
+    secrets: inherit
+    uses: intel-innersource/libraries.devops.renderkit.workflows/.github/workflows/macos.yml@main
+    needs: ["build-macosx-x86_64"]
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [arm, x86_64]
+    with:
+      runs-on: '[ "macOS", "${{ matrix.platform }}" ]'
+      artifact-in: build-macosx-x86_64
+      cmd: |
+        EMBREE_PATH=$(./scripts/prepare-test-files-macos.sh --type ctest)
+        ./scripts/run-tests.sh --type ctest --embree-dir "$EMBREE_PATH" --ctest-config Release
+
+  build-macosx-arm:
+    secrets: inherit
+    uses: intel-innersource/libraries.devops.renderkit.workflows/.github/workflows/macos.yml@main
+    with:
+      runs-on: '[ "macOS", "build", "arm" ]'
+      cmd: |
+        opts="-DCMAKE_BUILD_TYPE=Release"
+        opts+=" -DBUILD_TESTING=ON"
+        opts+=" -DEMBREE_TUTORIALS=ON"
+        opts+=" -DEMBREE_ISPC_SUPPORT=ON"
+        opts+=" -DEMBREE_TESTING_INTENSITY=3"
+        opts+=" -DCMAKE_CXX_COMPILER=clang++"
+        opts+=" -DCMAKE_C_COMPILER=clang"
+        opts+=" -DCMAKE_INSTALL_BINDIR=bin"
+        opts+=" -DCMAKE_INSTALL_DOCDIR=doc"
+        opts+=" -DCMAKE_INSTALL_INCLUDEDIR=include"
+        opts+=" -DCMAKE_INSTALL_TESTDIR=testing"
+        opts+=" -DCMAKE_MACOSX_RPATH=ON"
+        opts+=" -DCMAKE_SKIP_INSTALL_RPATH=OFF"
+        opts+=" -DEMBREE_BUILD_GLFW_FROM_SOURCE=ON"
+        opts+=" -DEMBREE_INSTALL_DEPENDENCIES=ON"
+        opts+=" -DEMBREE_MAX_ISA=NEON2X"
+        opts+=" -DEMBREE_PATCH_GLFW_SOURCE=ON"
+        opts+=" -DEMBREE_TASKING_SYSTEM=TBB"
+        opts+=" -DEMBREE_TESTING_INSTALL_TESTS=ON"
+        opts+=" -DEMBREE_ZIP_MODE=ON"
+        opts+=" -DCPACK_PRE_BUILD_SCRIPTS=$CPACK_PRE_BUILD_SIGNING_SCRIPT"
+
+        cmake -S superbuild -B build -D BUILD_TBB_FROM_SOURCE=ON -D EMBREE_EXTRA_OPTIONS="$opts"
+        cmake --build build --config Release
+        cmake --build build/embree/build --config Release --target build
+        cp build/embree/build/embree-*.zip build/
+      notarize-package: build/embree-*.arm64.macosx.zip
+      artifact-out: build-macosx-arm
+      artifact-path: ./build/embree-*.zip
+
+  test-macosx-arm:
+    secrets: inherit
+    uses: intel-innersource/libraries.devops.renderkit.workflows/.github/workflows/macos.yml@main
+    needs: ["build-macosx-arm"]
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [arm]
+    with:
+      runs-on: '[ "macOS", "${{ matrix.platform }}" ]'
+      artifact-in: build-macosx-arm
+      cmd: |
+        EMBREE_PATH=$(./scripts/prepare-test-files-macos.sh --type ctest)
+        ./scripts/run-tests.sh --type ctest --embree-dir "$EMBREE_PATH" --ctest-config Release
+
+  build-linux:
+    secrets: inherit
+    uses: intel-innersource/libraries.devops.renderkit.workflows/.github/workflows/docker.yml@main
+    with:
+      image: rockylinux:8.7
+      runs-on: '[ "Linux", "build" ]'
+      artifact-out: build-linux
+      artifact-path: ./build/*.tar.gz
+      dpcpp-version: intel-llvm/v6.2.0
+      pre-cmd: |
+        dnf -y install epel-release
+        dnf -y config-manager --set-enabled powertools
+        dnf -y install ninja-build
+      cmd: |
+        opts="-DCMAKE_BUILD_TYPE=Release"
+        opts+=" -DBUILD_TESTING=ON"
+        opts+=" -DEMBREE_TUTORIALS=ON"
+        opts+=" -DEMBREE_ISPC_SUPPORT=ON"
+        opts+=" -DEMBREE_TESTING_INTENSITY=3"
+        opts+=" -DEMBREE_MAX_ISA=AVX512"
+        opts+=" -DEMBREE_INSTALL_DEPENDENCIES=ON"
+        opts+=" -DEMBREE_TESTING_INSTALL_TESTS=ON"
+        opts+=" -DCMAKE_INSTALL_TESTDIR=testing"
+        opts+=" -DEMBREE_ZIP_MODE=ON"
+
+        cmake -S superbuild -B build -D EMBREE_EXTRA_OPTIONS="$opts"
+        cmake --build build --config Release
+        cmake --build build/embree/build --config Release --target build
+        cp build/embree/build/embree-*.tar.gz build/
+
+  linux-test:
+    secrets: inherit
+    uses: intel-innersource/libraries.devops.renderkit.workflows/.github/workflows/docker.yml@main
+    needs: ["build-linux"]
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [avx512, avx2]
+    with:
+      image: ubuntu:24.04
+      runs-on: '[ "Linux", "${{ matrix.platform }}" ]'
+      artifact-in: build-linux
+      cmd: |
+        EMBREE_PATH=$(./scripts/prepare-test-files.sh --type ctest | tail -1)
+        ./scripts/run-tests.sh --type ctest --embree-dir "$EMBREE_PATH" --ctest-config Release
+
+
+####################################################################
+# SYCL Builds and Tests
+####################################################################
+  build-windows-sycl:
+    secrets: inherit
+    uses: intel-innersource/libraries.devops.renderkit.workflows/.github/workflows/windows.yml@main
+    with:
+      runs-on: '[ "Windows", "build" ]'
+      dpcpp-version: intel-llvm/v6.2.0
+      artifact-out: build-windows-sycl
+      artifact-path: ./build/*.zip
+      cmd: |
+        $opts  = "-DCMAKE_BUILD_TYPE=Release"
+        $opts += " -DBUILD_TESTING=ON"
+        $opts += " -DEMBREE_TUTORIALS=ON"
+        $opts += " -DEMBREE_ISPC_SUPPORT=ON"
+        $opts += " -DEMBREE_TESTING_INTENSITY=3"
+        $opts += " -DEMBREE_SYCL_SUPPORT=ON"
+        $opts += " -DEMBREE_SYCL_AOT_DEVICES=none"
+        $opts += " -DEMBREE_MAX_ISA=AVX512"
+        $opts += " -DEMBREE_INSTALL_DEPENDENCIES=ON"
+        $opts += " -DEMBREE_TESTING_INSTALL_TESTS=ON"
+        $opts += " -DCMAKE_INSTALL_TESTDIR=testing"
+        $opts += " -DEMBREE_ZIP_MODE=ON"
+
+        cmake -S superbuild -B build -G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -D EMBREE_EXTRA_OPTIONS="$opts"
+        cmake --build build --config Release
+        cmake --build build/embree/build --config Release --target build
+        Copy-Item build/embree/build/embree-*.zip build/ -Force
+
+  build-linux-sycl:
+    secrets: inherit
+    uses: intel-innersource/libraries.devops.renderkit.workflows/.github/workflows/docker.yml@main
+    with:
+      image: rockylinux:8.7
+      runs-on: '[ "Linux", "build" ]'
+      dpcpp-version: intel-llvm/v6.2.0
+      artifact-out: build-linux-sycl
+      artifact-path: ./build/*.tar.gz
+      pre-cmd: |
+        dnf -y install epel-release
+        dnf -y config-manager --set-enabled powertools
+        dnf -y install ninja-build
+      cmd: |
+        opts="-DCMAKE_BUILD_TYPE=Release"
+        opts+=" -DBUILD_TESTING=ON"
+        opts+=" -DEMBREE_TUTORIALS=ON"
+        opts+=" -DEMBREE_ISPC_SUPPORT=ON"
+        opts+=" -DEMBREE_TESTING_INTENSITY=3"
+        opts+=" -DEMBREE_SYCL_SUPPORT=ON"
+        opts+=" -DEMBREE_SYCL_AOT_DEVICES=none"
+        opts+=" -DEMBREE_MAX_ISA=AVX512"
+        opts+=" -DEMBREE_INSTALL_DEPENDENCIES=ON"
+        opts+=" -DEMBREE_TESTING_INSTALL_TESTS=ON"
+        opts+=" -DCMAKE_INSTALL_TESTDIR=testing"
+        opts+=" -DEMBREE_ZIP_MODE=ON"
+
+        cmake -S superbuild -B build -G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -D EMBREE_EXTRA_OPTIONS="$opts"
+        cmake --build build --config Release
+        cmake --build build/embree/build --config Release --target build
+        cp build/embree/build/embree-*.tar.gz build/
+
+  windows-sycl-test:
+    secrets: inherit
+    uses: intel-innersource/libraries.devops.renderkit.workflows/.github/workflows/windows.yml@main
+    needs: ["build-windows-sycl"]
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [dg2, bmg, lnl]
+    with:
+      runs-on: '[ "Windows", "${{ matrix.platform }}" ]'
+      env-from-files: ./.github/workflows/gfx-windows-public.env
+      artifact-in: build-windows-sycl
+      cmd: |
+        $EmbreeDir = .\\scripts\\prepare-test-files.ps1 -TestType ctest
+        .\\scripts\\run-tests.ps1 -TestType ctest -EmbreeDir $EmbreeDir -CtestConfig Release
+
+  linux-sycl-test:
+    secrets: inherit
+    uses: intel-innersource/libraries.devops.renderkit.workflows/.github/workflows/docker.yml@main
+    needs: ["build-linux-sycl"]
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [dg2, pvc, atsm]
+    with:
+      image: ubuntu:24.04
+      options: --device=/dev/dri:/dev/dri
+      runs-on: '[ "Linux", "${{ matrix.platform }}" ]'
+      env-from-files: ./.github/workflows/gfx-ubuntu24-public.env
+      artifact-in: build-linux-sycl
+      cmd: |
+        EMBREE_PATH=$(./scripts/prepare-test-files.sh --type ctest | tail -1)
+        ./scripts/run-tests.sh --type ctest --embree-dir "$EMBREE_PATH" --ctest-config Release
+
+
+####################################################################
+# Release binaries scans
+####################################################################
+  binary-analysis:
+    needs:
+      - build-windows
+      - build-macosx-x86_64
+      - build-linux
+    secrets: inherit
+    uses: intel-innersource/libraries.devops.renderkit.workflows/.github/workflows/binary_analysis.yml@main
+    with:
+      project: embree
+      artifact-in-windows: build-windows
+      artifact-in-macos: build-macosx-x86_64
+      artifact-in-linux: build-linux
+      path: "build/*.zip build/*.gz"
+
+  antivirus-scan:
+    needs:
+      - build-windows
+      - build-macosx-x86_64
+      - build-linux
+    secrets: inherit
+    uses: intel-innersource/libraries.devops.renderkit.workflows/.github/workflows/antivirus_scan.yml@main
+    with:
+      project: embree
+      artifact-in-windows: build-windows
+      artifact-in-macos: build-macosx-x86_64
+      artifact-in-linux: build-linux
+      path: "build/*.zip build/*.gz"
+
+  binary-analysis-sycl:
+    needs:
+      - build-windows-sycl
+      - build-linux-sycl
+    secrets: inherit
+    uses: intel-innersource/libraries.devops.renderkit.workflows/.github/workflows/binary_analysis.yml@main
+    with:
+      project: embree
+      artifact-in-windows: build-windows-sycl
+      artifact-in-linux: build-linux-sycl
+      path: "build/*.zip build/*.gz"
+      artifact-out-name: "binary-analysis-sycl"
+
+  antivirus-scan-sycl:
+    needs:
+      - build-windows-sycl
+      - build-linux-sycl
+    secrets: inherit
+    uses: intel-innersource/libraries.devops.renderkit.workflows/.github/workflows/antivirus_scan.yml@main
+    with:
+      project: embree
+      artifact-in-windows: build-windows-sycl
+      artifact-in-linux: build-linux-sycl
+      path: "build/*.zip build/*.gz"
+      artifact-out-name: "antivirus-scan-sycl"
+
+  binary-analysis-arm:
+    needs:
+      - build-macosx-arm
+    secrets: inherit
+    uses: intel-innersource/libraries.devops.renderkit.workflows/.github/workflows/binary_analysis.yml@main
+    with:
+      project: embree
+      artifact-in-macos: build-macosx-arm
+      path: "build/*.zip"
+      artifact-out-name: "binary-analysis-arm"
+
+  antivirus-scan-arm:
+    needs:
+      - build-macosx-arm
+    secrets: inherit
+    uses: intel-innersource/libraries.devops.renderkit.workflows/.github/workflows/antivirus_scan.yml@main
+    with:
+      project: embree
+      artifact-in-macos: build-macosx-arm
+      path: "build/*.zip"
+      artifact-out-name: "antivirus-scan-arm"
