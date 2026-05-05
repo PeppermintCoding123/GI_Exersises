@@ -27,10 +27,13 @@ std::tuple<glm::vec3, Ray, float> AreaLight::sample_Li(const glm::vec3& position
     // compute the irradiance that arrives at <position> (shading point) from <light> (point on light source)
     // hint: setup the shadow ray to test for occlusion between two points(!)
     // hint: you may simply ignore the sample_pdf variable for now
+    // position = position auf mash => wieviel licht ankommt
+    glm::vec3 dir_to_light = glm::normalize(position - light.P);
     const glm::vec3 Le = light.Le();
     const float area = light.area;
-    Ray shadow_ray = Ray();
-    return {Le, shadow_ray, sample_pdf};
+    const auto Li = Le * ((area * glm::dot(-dir_to_light, light.Ng)) / ((position - light.P) * (position - light.P)));
+    Ray shadow_ray = Ray(position, dir_to_light);
+    return {Li, shadow_ray, sample_pdf};
 }
 
 float AreaLight::pdf_Li(const SurfaceHit& light, const Ray& ray) const {
