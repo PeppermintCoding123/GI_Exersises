@@ -175,15 +175,23 @@ class StratifiedSampler2D : public Sampler<glm::vec2> {
   public:
     /*glm::vec2 stratum_previous;
     float sqrt_one_div_N;*/
-    uint32_t strata;
+    uint32_t position_x = 0;
+    uint32_t position_y = 0;
     uint32_t grid_width;
+    float ind_width;
+//Q: How to do this? HELP
+    StratifiedSampler1D stratX;
+    StratifiedSampler1D stratY;
     inline void init(uint32_t N) {
         // TODO ASSIGNMENT1
         // note: you may assume N to be quadratic
         /*sqrt_one_div_N = 1.f / sqrtf(float(N));
         stratum_previous = glm::vec2(0.f);*/
-        strata = 0;
         grid_width = sqrtf(float(N));
+        ind_width= 1.f / grid_width;
+
+        stratX.init(sqrt(N));
+        stratY.init(sqrt(N));
     }
 
     inline glm::vec2 next() {
@@ -191,26 +199,16 @@ class StratifiedSampler2D : public Sampler<glm::vec2> {
         // return the next stratified sample
         STAT("stratified sampling 2D");
         // 2 - 3 Zeilen
-        uint32_t x = strata % grid_width;
-        uint32_t y = strata / grid_width;
-        float ind_width = 1.f / grid_width;
-        float temp_x = x * ind_width + RNG::uniform<float>() * ind_width;
-        float temp_y = y * ind_width + RNG::uniform<float>() * ind_width;
-        strata++;
-        return glm::vec2(temp_x, temp_y);
-        /*if(stratum_previous.x < 1.f){
-            float temp_x = stratum_previous.x + RNG::uniform<float>() * sqrt_one_div_N;
-            float temp_y = stratum_previous.y + RNG::uniform<float>() * sqrt_one_div_N;
-            stratum_previous.x += sqrt_one_div_N;
-            return glm::vec2(temp_x, temp_y);
+
+        float sx = position_x + stratX.next();
+        float sy = position_y + stratY.next();
+        if(position_x == grid_width - 1){
+            position_x = 0; 
+            position_y++;
+        } else {
+            position_x++;
         }
-        else{
-            stratum_previous.x = 0.f;
-            float temp_x = stratum_previous.x + RNG::uniform<float>() * sqrt_one_div_N;
-            float temp_y = stratum_previous.y + RNG::uniform<float>() * sqrt_one_div_N;
-            stratum_previous.y += sqrt_one_div_N;
-            return glm::vec2(temp_x, temp_y);
-        }*/
+        return glm::vec2(sx, sy);
     }
 };
 
