@@ -63,7 +63,13 @@ struct SimpleRenderer : public Algorithm {
                 const auto [light_ptr, ignore_me] = scene.sample_light_source(light_select_sampler.next());
                 auto [Li, shadow_ray, ignore_me2] = light_ptr->sample_Li(hit.P, light_pos_sampler.next());
                 bool occluded = scene.occluded(shadow_ray);
-                L = hit.albedo();
+                if (occluded){
+                    L = hit.albedo() * 0.0f;
+                }else{
+                    L = hit.albedo() * Li; 
+                    
+                }
+                
             }
         } else { // ray esacped the scene
             L = scene.Le(ray);

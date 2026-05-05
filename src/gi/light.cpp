@@ -28,11 +28,12 @@ std::tuple<glm::vec3, Ray, float> AreaLight::sample_Li(const glm::vec3& position
     // hint: setup the shadow ray to test for occlusion between two points(!)
     // hint: you may simply ignore the sample_pdf variable for now
     // position = position auf mash => wieviel licht ankommt
-    glm::vec3 dir_to_light = glm::normalize(position - light.P);
+    glm::vec3 dir_to_light = glm::normalize(light.P - position); // wi
     const glm::vec3 Le = light.Le();
     const float area = light.area;
-    const auto Li = Le * ((area * glm::dot(-dir_to_light, light.Ng)) / ((position - light.P) * (position - light.P)));
-    Ray shadow_ray = Ray(position, dir_to_light);
+    const float r_squared = glm::dot(position - light.P, position - light.P);
+    const auto Li = Le * ((area * glm::dot(-dir_to_light, light.Ng)) / (r_squared)); // seems to be correct
+    Ray shadow_ray = Ray(position, dir_to_light, glm::length(light.P - position)); // Ray length neccacary for occluded.
     return {Li, shadow_ray, sample_pdf};
 }
 
