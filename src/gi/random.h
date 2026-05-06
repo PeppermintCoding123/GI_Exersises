@@ -179,7 +179,6 @@ class StratifiedSampler2D : public Sampler<glm::vec2> {
     uint32_t position_y = 0;
     uint32_t grid_width;
     float ind_width;
-//Q: How to do this? HELP
     StratifiedSampler1D stratX;
     StratifiedSampler1D stratY;
     inline void init(uint32_t N) {
@@ -192,6 +191,8 @@ class StratifiedSampler2D : public Sampler<glm::vec2> {
 
         stratX.init(sqrt(N));
         stratY.init(sqrt(N));
+        position_x = 0;
+    position_y = 0;
     }
 
     inline glm::vec2 next() {
@@ -200,8 +201,8 @@ class StratifiedSampler2D : public Sampler<glm::vec2> {
         STAT("stratified sampling 2D");
         // 2 - 3 Zeilen
 
-        float sx = position_x + stratX.next();
-        float sy = position_y + stratY.next();
+        float sx =( position_x + RNG::uniform<float>()) * ind_width;
+        float sy =(position_y + RNG::uniform<float>()) * ind_width;
         if(position_x == grid_width - 1){
             position_x = 0; 
             position_y++;

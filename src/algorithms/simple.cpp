@@ -34,51 +34,54 @@ struct SimpleRenderer : public Algorithm {
         UniformSampler2D dof_sampler = UniformSampler2D();
         dof_sampler.init(samples);
         cam.apply_DOF(ray, dof_sampler.next());*/
-        auto sampler = UniformSampler2D();
+        auto sampler = StratifiedSampler2D();
         sampler.init(samples);
-        auto lens_sampler = UniformSampler2D();
+        auto lens_sampler = HammersleySampler2D();
         lens_sampler.init(samples);
         auto light_select_sampler = UniformSampler1D();
         light_select_sampler.init(scene.lights.size());
-        auto light_pos_sampler = UniformSampler2D();
+        auto light_pos_sampler = StratifiedSampler2D();
         light_pos_sampler.init(samples);
         
+        for (uint32_t i = 0; i < samples; ++i) {
+            vec3 L(0);
 
-        vec3 L(0);
+            // setup a view ray
+            Ray ray = cam.view_ray(x, y, w, h, sampler.next(), lens_sampler.next());
 
-        // setup a view ray
-        Ray ray = cam.view_ray(x, y, w, h, sampler.next(), lens_sampler.next());
+            // intersect main ray with scene
+            const SurfaceHit hit = scene.intersect(ray);
 
-        // intersect main ray with scene
-        const SurfaceHit hit = scene.intersect(ray);
-
-        // check if a hit was found
-        if (hit.valid) {
-            if (hit.is_light()) { // direct light source hit
-                L = hit.Le();
-            } else { // surface hit -> shading
-                // TODO ASSIGNMENT1
-                // add area light shading via the rendering equation from the assignment sheet
-                // hint: use the following c++17 syntax to capture multiple return values:
-                const auto [light_ptr, ignore_me] = scene.sample_light_source(light_select_sampler.next());
-                auto [Li, shadow_ray, ignore_me2] = light_ptr->sample_Li(hit.P, light_pos_sampler.next());
-                bool occluded = scene.occluded(shadow_ray);
-                if (occluded){
-                    L = hit.albedo() * 0.0f;
-                }else{
-                    L = hit.albedo() * Li; 
+            // check if a hit was found
+            if (hit.valid) {
+                if (hit.is_light()) { // direct light source hit
+                    L = hit.Le();
+                } else { // surface hit -> shading
+                    // TODO ASSIGNMENT1
+                    // add area light shading via the rendering equation from the assignment sheet
+                    // hint: use the following c++17 syntax to capture multiple return values:
+                    const auto [light_ptr, ignore_me] = scene.sample_light_source(light_select_sampler.next());
+                    auto [Li, shadow_ray, ignore_me2] = light_ptr->sample_Li(hit.P, light_pos_sampler.next());
+                    bool occluded = scene.occluded(shadow_ray);
+                    float cos_theta = glm::max(glm::dot(shadow_ray.dir, hit.N), 0.0f);
+                    if (occluded){
+                        L = hit.albedo() * 0.0f;
+                    }else{
+                        L = hit.albedo() * Li*cos_theta; 
+                        
+                    }
                     
                 }
-                
+            } else { // ray esacped the scene
+                L = scene.Le(ray);
             }
-        } else { // ray esacped the scene
-            L = scene.Le(ray);
+
+            // add result to framebuffer
+            fbo.add_sample(x, y, L);
+
         }
-
-        // add result to framebuffer
-        fbo.add_sample(x, y, L);
-
     }
+    
 };
 
 static AlgorithmRegistrar<SimpleRenderer> registrar;
