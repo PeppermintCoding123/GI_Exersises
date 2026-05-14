@@ -25,7 +25,7 @@ struct SimpleRenderer : public Algorithm {
         /*UniformSampler2D pixel_sampler = UniformSampler2D();
         pixel_sampler.init(samples);
 
-        // Q: how to pass sample to Camera::view_ray
+        // QA: how to pass sample to Camera::view_ray -> see implementation
         Ray ray = cam.view_ray(x, y, w, h, pixel_sampler.next());
 
         // FYI: Framebuffer automatically averages per pixel colors in Framebuffer::add_saple
@@ -34,13 +34,13 @@ struct SimpleRenderer : public Algorithm {
         UniformSampler2D dof_sampler = UniformSampler2D();
         dof_sampler.init(samples);
         cam.apply_DOF(ray, dof_sampler.next());*/
-        auto sampler = StratifiedSampler2D();
+        auto sampler = LDSampler2D();
         sampler.init(samples);
-        auto lens_sampler = HammersleySampler2D();
+        auto lens_sampler = LDSampler2D();
         lens_sampler.init(samples);
         auto light_select_sampler = UniformSampler1D();
-        light_select_sampler.init(scene.lights.size());
-        auto light_pos_sampler = StratifiedSampler2D();
+        light_select_sampler.init(scene.lights.size());  
+        auto light_pos_sampler = HammersleySampler2D();
         light_pos_sampler.init(samples);
         
         for (uint32_t i = 0; i < samples; ++i) {
@@ -60,12 +60,12 @@ struct SimpleRenderer : public Algorithm {
                     // TODO ASSIGNMENT1
                     // add area light shading via the rendering equation from the assignment sheet
                     // hint: use the following c++17 syntax to capture multiple return values:
-                    const auto [light_ptr, ignore_me] = scene.sample_light_source(light_select_sampler.next());
+                    const auto [light_ptr, ignore_me] = scene.sample_light_source(light_select_sampler.next()); // QA: what happens here -> samples from 1 light source, not from all
                     auto [Li, shadow_ray, ignore_me2] = light_ptr->sample_Li(hit.P, light_pos_sampler.next());
                     bool occluded = scene.occluded(shadow_ray);
                     float cos_theta = glm::max(glm::dot(shadow_ray.dir, hit.N), 0.0f);
                     if (occluded){
-                        L = hit.albedo() * 0.0f;
+                        L = hit.albedo() * 0.0f; // mult with !occuded
                     }else{
                         L = hit.albedo() * Li*cos_theta; 
                         
