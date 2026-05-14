@@ -110,14 +110,15 @@ inline glm::vec2 uniform_sample_triangle(const glm::vec2& sample) {
 
 // hemisphere (uniform distributed tangent space direction)
 inline glm::vec3 uniform_sample_hemisphere(const glm::vec2& sample) {
-    throw std::runtime_error(
-        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
-    );
+    // https://blog.thomaspoulet.fr/posts/uniform-sampling-on-a-unit-hemisphere/
+    // radius set to 1
+    float theta = acosf(1 - sample.x);
+    float phi = 2 * PI * sample.y;
+    return glm::vec3(sinf(theta) * cosf(phi), sinf(theta) * sinf(phi), cosf(theta));
 }
 inline float uniform_hemisphere_pdf() {
-    throw std::runtime_error(
-        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
-    );
+    // https://ameye.dev/notes/sampling-the-hemisphere/
+    return 1 / (2 * PI);
 }
 
 // hemisphere (cosine distributed tangent space direction)

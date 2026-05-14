@@ -8,9 +8,8 @@
 // Approximations
 
 inline float fresnel_schlick(float cos_i, float index_of_refraction) {
-    throw std::runtime_error(
-        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
-    );
+    float R_0 = index_of_refraction;
+    return R_0 + (1.0f - R_0) * powf(1.0f - cos_i, 5.0f);
 }
 
 // -------------------------------------------------------------------
