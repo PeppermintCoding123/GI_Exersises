@@ -110,6 +110,9 @@ inline glm::vec2 uniform_sample_triangle(const glm::vec2& sample) {
 
 // hemisphere (uniform distributed tangent space direction)
 inline glm::vec3 uniform_sample_hemisphere(const glm::vec2& sample) {
+    // TODO ASSIGNMENT2
+    // generate a uniform distributed tangent space direction on the unit hemisphere from a random sample in [0, 1)
+    // hint: use a spherical coordinate system
     // https://blog.thomaspoulet.fr/posts/uniform-sampling-on-a-unit-hemisphere/
     // radius set to 1
     float theta = acosf(1 - sample.x);
@@ -117,21 +120,24 @@ inline glm::vec3 uniform_sample_hemisphere(const glm::vec2& sample) {
     return glm::vec3(sinf(theta) * cosf(phi), sinf(theta) * sinf(phi), cosf(theta));
 }
 inline float uniform_hemisphere_pdf() {
+    // TODO ASSIGNMENT2
+    // return the pdf of a uniform hemisphere sample in terms of solid angle
+
+    // MY Version: still follow instructions? TODO!!!
     // https://ameye.dev/notes/sampling-the-hemisphere/
-    // Q: dose this just sample 1 point?
     return 1 / (2 * PI);
 }
 
 // hemisphere (cosine distributed tangent space direction)
 inline glm::vec3 cosine_sample_hemisphere(const glm::vec2& sample) {
-    throw std::runtime_error(
-        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
-    );
+    // TODO ASSIGNMENT2
+    // generate a cosine distributed tangent space direction on the unit hemisphere from sample in [0, 1)
+    return glm::vec3(0);
 }
 inline float cosine_hemisphere_pdf(float cos_t) {
-    throw std::runtime_error(
-        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
-    );
+    // TODO ASSIGNMENT2
+    // return the pdf of a cosine hemisphere sample in terms of solid angle
+    return 0.f;
 }
 
 // sphere (uniform distributed tangent space direction)

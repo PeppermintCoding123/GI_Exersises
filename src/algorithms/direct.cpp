@@ -8,45 +8,45 @@
 
 using namespace std;
 using namespace glm;
-// Q: hier something forgotten to get to the rendering?
 
 struct DirectIllumination : public Algorithm {
     inline static const std::string name = "DirectIllumination";
 
     void sample_pixel(Context& context, uint32_t x, uint32_t y, uint32_t samples) {
-        // as in simple.cpp
-        const Scene& scene = context.scene;
+        // some shortcuts
         const Camera& cam = context.cam;
+        const Scene& scene = context.scene;
         Framebuffer& fbo = context.fbo;
-        const size_t w = fbo.width(), h = fbo.height();  
-
-        Ray ray = cam.view_ray(x, y, w, h, RNG::uniform<vec2>(), RNG::uniform<vec2>());
-
-        const SurfaceHit hit = scene.intersect(ray);
-
-        auto light_select_sampler = UniformSampler1D();
-        light_select_sampler.init(scene.lights.size());
-        auto light_pos_sampler = HammersleySampler2D();
-        light_pos_sampler.init(samples);
+        const size_t w = fbo.width(), h = fbo.height();
 
         for (uint32_t i = 0; i < samples; ++i) {
-            // light
-            glm::vec3 L(0);
+            vec3 L(0);
+            // setup a view ray
+            Ray ray = cam.view_ray(x, y, w, h, RNG::uniform<vec2>(), RNG::uniform<vec2>());
+            // intersect main ray with scene
+            const SurfaceHit hit = scene.intersect(ray);
+            // check if a hit was found
             if (hit.valid) {
-                if (hit.is_light()) { // direct light source hit
+                if (hit.is_light()) // direct light source hit
                     L = hit.Le();
-                } else { // surface hit -> shading
-                    const auto [light_ptr, ignore_me] = scene.sample_light_source(light_select_sampler.next());
-                    auto [Li, shadow_ray, ignore_me2] = light_ptr->sample_Li(hit.P, light_pos_sampler.next());
-                    vec3 w_o = -ray.dir; // out direction is the view ray direction
-                    vec3 w_i = glm::normalize(shadow_ray.dir - hit.P); // in direction is towards the light
+                else { // surface hit -> shade
+                    // TODO ASSIGNMENT2
+                    // modify the shading to include the BRDF via SurfaceHit::f
+                    // Note that with BRDFs, vectors always point away from the surface by convention
+                    const auto [light, pdf_light_source] = scene.sample_light_source(RNG::uniform<float>());
+                    auto [Li, shadow_ray, pdf_light_sample] = light->sample_Li(hit.P, RNG::uniform<vec2>());
+                    const float pdf = pdf_light_source * pdf_light_sample;
+                    /*if (pdf > 0.f && !scene.occluded(shadow_ray))
+                        L = Li * hit.albedo() * fmaxf(0.f, dot(hit.N, shadow_ray.dir)) / pdf;*/
+                    const auto cos_i = glm::dot(hit.N, shadow_ray.dir);
+                    if (pdf > 0.f && cos_i > 0.f && !scene.occluded(shadow_ray))
+                        L = (Li * hit.f(-ray.dir, shadow_ray.dir) * cos_i) / pdf;
 
-                    // calculate specular phong contribution for each light source
-                    L += SpecularPhong().f(hit, w_o, w_i); 
                 }
-            } else { // ray esacped the scene
+            } else // ray esacped the scene
                 L = scene.Le(ray);
-            }
+            // add result to framebuffer
+            fbo.add_sample(x, y, L);
         }
     }
 };
