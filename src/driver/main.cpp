@@ -1,10 +1,7 @@
 #include "context.h"
 
-#include "gi/random.h"
 
 int main(int argc, char** argv) {
-    plot_all_samplers2D();
-    perform_sampler_benchmarks();
 
     // init context
     Context context;

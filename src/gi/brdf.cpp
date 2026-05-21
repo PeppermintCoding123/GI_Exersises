@@ -171,7 +171,7 @@ inline float GGX_D(const float NdotH, float roughness) {
     // compute the GGX D term here
     // From micorofacet paper
     float alpha_g = 0.2f;
-    // X^+ = 1 if 1 else 0 -> Q: m * n is 1 for us?
+    // X^+ = 1 if 1 else 0 -> Q: m * n is 1 for us? -> reffering to paper
     float theta_m = NdotH;
     float D = (alpha_g * alpha_g) / (M_PI * powf(cosf(theta_m), 4.0f) * powf(powf(alpha_g, 2.0f) + powf(tan(theta_m), 2.0f), 2.0f));
     return D;

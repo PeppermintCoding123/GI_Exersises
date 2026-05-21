@@ -13,27 +13,45 @@ struct SimpleRenderer : public Algorithm {
     inline static const std::string name = "SimpleRenderer";
 
     void sample_pixel(Context& context, uint32_t x, uint32_t y, uint32_t samples) {
-        // some shortcuts
+        for (uint32_t i = 0; i < samples; ++i) {
+            vec3 L(0);
+
+            // setup a view ray
+            Ray ray = context.cam.view_ray(
+                x, y, context.fbo.width(), context.fbo.height(), RNG::uniform<vec2>(), RNG::uniform<vec2>()
+            );
+
+            // intersect main ray with scene
+            const SurfaceHit hit = context.scene.intersect(ray);
+
+            // check if a hit was found
+            if (hit.valid) {
+                if (hit.is_light()) { // direct light source hit
+                    L = hit.Le();
+                } else { // surface hit -> shading
+                    const auto [light, pdf_light_source] = context.scene.sample_light_source(RNG::uniform<float>());
+                    auto [Li, shadow_ray, pdf_light_sample] = light->sample_Li(hit.P, RNG::uniform<vec2>());
+                    const float pdf = pdf_light_source * pdf_light_sample;
+                    if (pdf > 0.f && !context.scene.occluded(shadow_ray))
+                        L = Li * hit.albedo() * fmaxf(0.f, glm::dot(hit.N, shadow_ray.dir)) / pdf;
+                }
+            } else { // ray esacped the scene
+                L = context.scene.Le(ray);
+            }
+
+            // add result to framebuffer
+            context.fbo.add_sample(x, y, L);
+        }
+
+        /* // some shortcuts
         const Camera& cam = context.cam;
         const Scene& scene = context.scene;
         Framebuffer& fbo = context.fbo;
         const size_t w = fbo.width(), h = fbo.height();
 
-        // TODO ASSIGNMENT1
+        // ASSIGNMENT1
         // - add and initialize random samplers
         // - apply supersampling over #samples and DOF using your samplers
-        /*UniformSampler2D pixel_sampler = UniformSampler2D();
-        pixel_sampler.init(samples);
-
-        // QA: how to pass sample to Camera::view_ray -> see implementation
-        Ray ray = cam.view_ray(x, y, w, h, pixel_sampler.next());
-
-        // FYI: Framebuffer automatically averages per pixel colors in Framebuffer::add_saple
-
-        // in Camera::apply_DOF
-        UniformSampler2D dof_sampler = UniformSampler2D();
-        dof_sampler.init(samples);
-        cam.apply_DOF(ray, dof_sampler.next());*/
         auto sampler = LDSampler2D();
         sampler.init(samples);
         auto lens_sampler = LDSampler2D();
@@ -57,7 +75,7 @@ struct SimpleRenderer : public Algorithm {
                 if (hit.is_light()) { // direct light source hit
                     L = hit.Le();
                 } else { // surface hit -> shading
-                    // TODO ASSIGNMENT1
+                    // ASSIGNMENT1
                     // add area light shading via the rendering equation from the assignment sheet
                     // hint: use the following c++17 syntax to capture multiple return values:
                     const auto [light_ptr, ignore_me] = scene.sample_light_source(light_select_sampler.next()); // QA: what happens here -> samples from 1 light source, not from all
@@ -78,10 +96,8 @@ struct SimpleRenderer : public Algorithm {
 
             // add result to framebuffer
             fbo.add_sample(x, y, L);
-
-        }
+        */
     }
-    
 };
 
 static AlgorithmRegistrar<SimpleRenderer> registrar;

@@ -23,18 +23,28 @@ std::tuple<glm::vec3, Ray, float> AreaLight::sample_Li(const glm::vec3& position
     STAT("sampleLi");
     // sample area light source (triangle mesh)
     const auto [light, sample_pdf] = mesh.sample(sample);
-    // TODO ASSIGNMENT1
+    if (sample_pdf <= 0.f) return {glm::vec3(0.f), Ray(), 0.f};
+    glm::vec3 l = light.P - position;
+    const float r = length(l);
+    l = normalize(l);
+    const float cos_t_light = dot(light.N, -l);
+    if (cos_t_light <= 0.f) return {glm::vec3(0.f), Ray(), 0.f};
+    const float pdf = sample_pdf * (r * r) / (cos_t_light * light.area);
+    assert(std::isfinite(pdf));
+    return {light.Le(), Ray(position, l, r), pdf};
+
+    //  ASSIGNMENT1
     // compute the irradiance that arrives at <position> (shading point) from <light> (point on light source)
     // hint: setup the shadow ray to test for occlusion between two points(!)
     // hint: you may simply ignore the sample_pdf variable for now
     // position = position auf mash => wieviel licht ankommt
-    glm::vec3 dir_to_light = glm::normalize(light.P - position); // wi
+    /*glm::vec3 dir_to_light = glm::normalize(light.P - position); // wi
     const glm::vec3 Le = light.Le();
     const float area = light.area;
     const float r_squared = glm::dot(position - light.P, position - light.P);
     const auto Li = Le * ((area * glm::dot(-dir_to_light, light.Ng)) / (r_squared)); // seems to be correct
     Ray shadow_ray = Ray(position, dir_to_light, glm::length(light.P - position)); // Ray length neccacary for occluded.
-    return {Li, shadow_ray, sample_pdf};
+    return {Li, shadow_ray, sample_pdf};*/
 }
 
 float AreaLight::pdf_Li(const SurfaceHit& light, const Ray& ray) const {
