@@ -47,6 +47,8 @@ struct DirectIllumination : public Algorithm {
                 L = scene.Le(ray);
             // add result to framebuffer
             fbo.add_sample(x, y, L);
+
+            // QA: how can we switsh between viewing Specular Phong and microphaset? use file ./gi a02_ggx.json
         }
     }
 };

@@ -4,6 +4,7 @@
 #include "hit.h"
 #include "material.h"
 #include "sampling.h"
+#include "gi/random.h"
 
 // ----------------------------------------------------------------------------------------------
 // Diffuse lambertian reflection
@@ -170,10 +171,11 @@ inline float GGX_D(const float NdotH, float roughness) {
     // TODO ASSIGNMENT2 (optional)
     // compute the GGX D term here
     // From micorofacet paper
-    float alpha_g = 0.2f;
-    // X^+ = 1 if 1 else 0 -> Q: m * n is 1 for us? -> reffering to paper
+    if (NdotH <= 0){ return 0;}
+    float alpha_g = roughness;
+    // X^+ = 1 if 1 else 0 -> QA: m * n is 1 for us? -> no we have to implement the smaller than 0 check ourselves.
     float theta_m = NdotH;
-    float D = (alpha_g * alpha_g) / (M_PI * powf(cosf(theta_m), 4.0f) * powf(powf(alpha_g, 2.0f) + powf(tan(theta_m), 2.0f), 2.0f));
+    float D = (sqr(alpha_g)) / (M_PI * glm::pow(cos(theta_m), 4.0f) * powf(powf(alpha_g, 2.0f) + powf(tan(theta_m), 2.0f), 2.0f)); // sqr macht square also hoch 2
     return D;
 }
 
@@ -181,9 +183,10 @@ inline float GGX_G1(const float NdotV, float roughness) {
     // TODO ASSIGNMENT2 (optional)
     // compute the GGX G1 term here
     // From micorofacet paper
-    float alpha_g = 0.2f;
-    float theta_v = NdotV;
-    // X^+ = 1 if 1 else 0 -> Q: v*m / v * n is 1 for us?
+    if (NdotV <= 0){ return 0;}
+    float alpha_g = roughness;
+    float theta_v = NdotV; // angle between v & n according to paper
+    // X^+ = 1 if 1 else 0 -> Q: v*m / v * n is 1 for us? das must du handeln, wenn das dotproduct 0 wird
     float G1 = 2.0f / (1.0f + sqrtf(1.0f + powf(alpha_g, 2.0f) * powf(tan(theta_v), 2.0f)));
     return G1; 
 
@@ -219,14 +222,17 @@ glm::vec3 MicrofacetReflection::f(const SurfaceHit& hit, const glm::vec3& w_o, c
     // note: use schlick's approximation for the F term
     
     // My version
-    glm::vec3 v = w_o;
+    glm::vec3 o = w_o; // auch als v bekannt
     glm::vec3 h = glm::normalize(w_i + w_o); // halfway vector
-    float cos_i = glm::dot(w_i, hit.N);
-    float denominator = 4.0f * (cos_i * glm::dot(w_o, hit.N)); // angles of incident & exiting towards light
-    float f = (GGX_G1(glm::dot(v, hit.N), hit.roughness()) * GGX_D(glm::dot(hit.N, h), hit.roughness()) * fresnel_schlick(cos_i, hit.roughness())) / denominator;
-    return f * hit.N;
+    float cos_i = glm::dot(w_i, hit.N); // das i aus dem paper
+    float m = hit.roughness(); // microsurface routhness
+    float Giom = GGX_G1(cos_i, m) * GGX_G1(glm::dot(o, hit.N), m);// = Gim*Gom  QA: stimmt das => Ja
+    float denominator = 4.0f * (cos_i * glm::dot(o, hit.N)); // angles of incident & exiting towards light
+    
+    float f = ( Giom * GGX_D(glm::dot(hit.N, h), m) * fresnel_schlick(cos_i, m)) / denominator;
+    return f * hit.albedo();
     // QA: what is meant by index odf reflection -> See above
-    // Q: expected to multiply f with a vector?
+    // QA: expected to multiply f with a vector? => welcher Vector => use hit.albedo()
 }
 
 std::tuple<glm::vec3, glm::vec3, float> MicrofacetReflection::sample(
