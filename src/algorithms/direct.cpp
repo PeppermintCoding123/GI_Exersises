@@ -20,7 +20,8 @@ struct DirectIllumination : public Algorithm {
         Framebuffer& fbo = context.fbo;
         const size_t w = fbo.width(), h = fbo.height();  
 
-        Ray ray = cam.view_ray(x, y, w, h);
+        Ray ray = cam.view_ray(x, y, w, h, RNG::uniform<vec2>(), RNG::uniform<vec2>());
+
         const SurfaceHit hit = scene.intersect(ray);
 
         auto light_select_sampler = UniformSampler1D();
@@ -38,7 +39,7 @@ struct DirectIllumination : public Algorithm {
                     const auto [light_ptr, ignore_me] = scene.sample_light_source(light_select_sampler.next());
                     auto [Li, shadow_ray, ignore_me2] = light_ptr->sample_Li(hit.P, light_pos_sampler.next());
                     vec3 w_o = -ray.dir; // out direction is the view ray direction
-                    vec3 w_i = glm::normalize(Li - hit.P); // in direction is towards the light
+                    vec3 w_i = glm::normalize(shadow_ray.dir - hit.P); // in direction is towards the light
 
                     // calculate specular phong contribution for each light source
                     L += SpecularPhong().f(hit, w_o, w_i); 

@@ -14,7 +14,7 @@ glm::vec3 LambertianReflection::f(const SurfaceHit& hit, const glm::vec3& w_o, c
     if (glm::dot(hit.N, w_i) <= 0.0f || glm::dot(hit.N, w_o) <= 0.0f)
         return glm::vec3(0.0f);
 
-    return hit.albedo() / float(1/M_PI);
+    return hit.albedo() / float(M_PI);
     //return glm::vec3(0);
 
 }
@@ -147,7 +147,6 @@ glm::vec3 SpecularPhong::f(const SurfaceHit& hit, const glm::vec3& w_o, const gl
     glm::vec3 temp = index_of_refraction * hit.albedo() * reflect_vect_light;
     float conserve_energy = (2.0f * M_PI)/(exponent + .0f); // lecture 4 page 10
 
-    // TODO: get from friend
     return temp * conserve_energy;
 }
 

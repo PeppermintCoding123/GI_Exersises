@@ -118,6 +118,7 @@ inline glm::vec3 uniform_sample_hemisphere(const glm::vec2& sample) {
 }
 inline float uniform_hemisphere_pdf() {
     // https://ameye.dev/notes/sampling-the-hemisphere/
+    // Q: dose this just sample 1 point?
     return 1 / (2 * PI);
 }
 
