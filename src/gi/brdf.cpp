@@ -246,9 +246,26 @@ std::tuple<glm::vec3, glm::vec3, float> MicrofacetReflection::sample(
     // TODO ASSIGNMENT2
     // importance sample and evaluate this microfacet BRDF
     // set w_i to the sampled (world-space!) direction, pdf to the respective PDF and brdf to the evaluated BRDF
-    const glm::vec3 w_i = glm::vec3(0);
-    const glm::vec3 brdf = glm::vec3(0);
-    const float pdf = 0.f;
+    const glm::vec3 w_i_tangent_space = uniform_sample_hemisphere(sample);
+    const glm::vec3 w_i = tangent_to_world(hit.N, w_i_tangent_space);
+    const glm::vec3 brdf = f(hit, w_o, w_i);
+    
+    // from Paper: GGX BRDF
+    // Draw a tangent space micro normal from a random sample using Eq 35 & 36
+    float alpha = hit.roughness();
+    float theta_m = atan(alpha * sqrtf(sample.x) / sqrtf(1 - sample.x)); // 35
+    float phi_m = 2 * PI * sample.y; // 36
+
+    // compute pdf with Eq 14, 24,38
+    glm::vec3 h = glm::normalize(w_i + w_o);
+    float NdotH = glm::dot(hit.N, h);
+    float D = GGX_D(NdotH, alpha);
+
+    float jacobian = 1.0f / (4.0f * glm::dot(w_o, h)); // Eq 14 jacobian = dw_h/dw_0
+    float p_m = D * cos(theta_m); // Eq 24 p_m = probability of generating any m using given sampling equasion
+    float p_o = p_m / jacobian; // Eq 38 p_o = probability of generating w_i via sampling m and reflecting w_o about m
+
+    const float pdf = D * p_o; // GGX_pdf(D, NdotH, OdotH);
     return {brdf, w_i, pdf};
 }
 
