@@ -10,8 +10,11 @@
 inline float fresnel_schlick(float cos_i, float index_of_refraction) {
     // TODO ASSIGNMENT2
     // implement Schlick's approximation
-    const auto R0 = std::pow((1 - index_of_refraction) / (1 + index_of_refraction), 2.0f);
-    return R0 + (1.0f + R0) * std::pow(1 - cos_i, 5.0f);
+    float F0 = (1.f - index_of_refraction) / (1.f + index_of_refraction);
+    F0 = F0 * F0;
+    float cos_clamped = glm::clamp(cos_i, 0.f, 1.f);
+    return F0 + (1.f - F0) * powf(1.f - cos_clamped, 5.f);
+    
 }
 
 // -------------------------------------------------------------------

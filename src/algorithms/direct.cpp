@@ -36,19 +36,17 @@ struct DirectIllumination : public Algorithm {
                     const auto [light, pdf_light_source] = scene.sample_light_source(RNG::uniform<float>());
                     auto [Li, shadow_ray, pdf_light_sample] = light->sample_Li(hit.P, RNG::uniform<vec2>());
                     const float pdf = pdf_light_source * pdf_light_sample;
-                    /*if (pdf > 0.f && !scene.occluded(shadow_ray))
-                        L = Li * hit.albedo() * fmaxf(0.f, dot(hit.N, shadow_ray.dir)) / pdf;*/
-                    const auto cos_i = glm::dot(hit.N, shadow_ray.dir);
-                    if (pdf > 0.f && cos_i > 0.f && !scene.occluded(shadow_ray))
-                        L = (Li * hit.f(-ray.dir, shadow_ray.dir) * cos_i) / pdf;
-
+                    const glm::vec3 w_o = -ray.dir;           // outgoing = toward camera
+                    const glm::vec3 w_i = shadow_ray.dir;
+                    
+                           
+                    if (!scene.occluded(shadow_ray))
+                        L += Li * hit.f(w_o, w_i) *  dot(hit.N, w_i) / pdf;
                 }
             } else // ray esacped the scene
                 L = scene.Le(ray);
             // add result to framebuffer
             fbo.add_sample(x, y, L);
-
-            // QA: how can we switsh between viewing Specular Phong and microphaset? use file ./gi a02_ggx.json
         }
     }
 };

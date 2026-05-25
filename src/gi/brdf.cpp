@@ -4,7 +4,6 @@
 #include "hit.h"
 #include "material.h"
 #include "sampling.h"
-#include "gi/random.h"
 
 // ----------------------------------------------------------------------------------------------
 // Diffuse lambertian reflection
@@ -12,8 +11,11 @@
 glm::vec3 LambertianReflection::f(const SurfaceHit& hit, const glm::vec3& w_o, const glm::vec3& w_i) const {
     // TODO ASSIGNMENT2
     // evaluate the (normalized!) lambertian diffuse BRDF
+    if (glm::dot(hit.N, w_i) <= 0.0f || glm::dot(hit.N, w_o) <= 0.0f)
+        return glm::vec3(0.0f);
 
-    return hit.albedo() / PI;
+    return hit.albedo() / float(M_PI);
+    //return glm::vec3(0);
 }
 
 std::tuple<glm::vec3, glm::vec3, float> LambertianReflection::sample(
@@ -137,15 +139,21 @@ glm::vec3 SpecularPhong::f(const SurfaceHit& hit, const glm::vec3& w_o, const gl
     // you may use hit.albedo() as the specular color here
     const float exponent = Material::exponent_from_roughness(hit.roughness());
     const float index_of_refraction = hit.mat->ior;
+     if (glm::dot(hit.N, w_i) <= 0.f || glm::dot(hit.N, w_o) <= 0.f)
+        return glm::vec3(0.f);
 
-    const auto h = glm::normalize(w_o + w_i);
-    const auto k_shiny = fresnel_schlick(glm::max(glm::dot(w_o, h), 0.0f), index_of_refraction); // reflection coefficiant
-    const float reflect_vect_light = std::pow(glm::max(glm::dot(hit.N, h), 0.0f), exponent);
-    const float conserve_energy = (exponent + 1.0f) / (2.0f * PI); // lecture 4 page 10
+    // Half-vector for Blinn-Phong
+    const glm::vec3 h = glm::normalize(w_i + w_o);
+    const float NdotH = glm::max(0.f, glm::dot(hit.N, h));
 
-    return hit.albedo() * k_shiny * reflect_vect_light * conserve_energy; // calculate entire, not just 
+    // Normalized Phong: (n+1)/(2π) * (r·v)^n
+    const float normalization = (exponent + 1.f) / (2.f * float(M_PI));
+    const float spec = normalization * powf(NdotH, exponent);
 
-
+    // Scale by Fresnel term
+    const float F = fresnel_schlick(glm::dot(hit.N, w_o), index_of_refraction);
+    return hit.albedo() * F * spec;
+    
 }
 
 std::tuple<glm::vec3, glm::vec3, float> SpecularPhong::sample(
@@ -168,26 +176,23 @@ float SpecularPhong::pdf(const SurfaceHit& hit, const glm::vec3& w_o, const glm:
 inline float GGX_D(const float NdotH, float roughness) {
     // TODO ASSIGNMENT2 (optional)
     // compute the GGX D term here
-    // From micorofacet paper
-    if (NdotH <= 0){ return 0;} // X^+
-    float alpha_g = roughness;
-    float theta_m = NdotH;
-
-    float D = (sqr(alpha_g)) / (M_PI * glm::pow(cos(theta_m), 4.0f) * sqr(sqr(alpha_g) + sqr(tan(theta_m)))); // sqr macht square also hoch 2
-    return D;
+    if (NdotH <= 0.f) return 0.f;
+    const float alpha2 = roughness * roughness;
+    const float cos2 = NdotH * NdotH;
+    const float tan2 = (1.f - cos2) / cos2;           // tan²θ
+    const float denom = float(M_PI) * cos2 * cos2 * sqr(alpha2 + tan2);
+    return alpha2 / denom;
+    //return 0.f;
 }
 
 inline float GGX_G1(const float NdotV, float roughness) {
     // TODO ASSIGNMENT2 (optional)
     // compute the GGX G1 term here
-    // From micorofacet paper
-    if (NdotV <= 0){ return 0;} // X^+
-    float alpha_g = roughness;
-    float theta_v = NdotV; // angle between v & n according to paper
-    
-    float G1 = 2.0f / (1.0f + sqrtf(1.0f + powf(alpha_g, 2.0f) * powf(tan(theta_v), 2.0f)));
-    return G1; 
-
+    if (NdotV <= 0.f) return 0.f;
+    const float alpha2 = roughness * roughness;
+    const float cos2 = NdotV * NdotV;
+    const float tan2 = (1.f - cos2) / cos2;
+    return 2.f / (1.f + sqrtf(1.f + alpha2 * tan2));
 }
 
 glm::vec3 GGX_sample(const glm::vec2& sample, float roughness) {
@@ -218,26 +223,21 @@ glm::vec3 MicrofacetReflection::f(const SurfaceHit& hit, const glm::vec3& w_o, c
     // TODO ASSIGNMENT2
     // evaluate the full microfacet BRDF here, optionally relying on the above functions for the D and G1 terms
     // note: use schlick's approximation for the F term
-    
-    // My version
-    glm::vec3 h = glm::normalize(w_i + w_o); // halfway vector
-    float alpha = hit.roughness(); // microsurface routhness
+    const float alpha = hit.roughness();
+    const float NdotI = glm::dot(hit.N, w_i);
+    const float NdotO = glm::dot(hit.N, w_o);
+    if (NdotI <= 0.f || NdotO <= 0.f) return glm::vec3(0.f);
 
-    float NdotH = glm::dot(hit.N, h);
-    float IdotH = glm::dot(hit.N, w_o); // hier max 0
-    float OdotH = glm::dot(h, w_o);
+    const glm::vec3 h = glm::normalize(w_i + w_o);   // half-vector
+    const float NdotH = glm::dot(hit.N, h);
+    const float HdotO = glm::dot(h, w_o);
 
+    const float D = GGX_D(NdotH, alpha);
+    const float G = GGX_G1(NdotI, alpha) * GGX_G1(NdotO, alpha);
+    const float F = fresnel_schlick(HdotO, hit.mat->ior); // F uses angle to half-vector
 
-    float Giom = GGX_G1(IdotH, alpha) * GGX_G1(OdotH, alpha);// = Gim*Gom  QA: stimmt das => Ja
-    float numerator = Giom * GGX_D(NdotH, alpha) * fresnel_schlick(IdotH, alpha);
-    
-    float denominator = 4.0f * (glm::dot(hit.N, w_o) * glm::dot(hit.N, w_o)); // angles of incident & exiting towards light
-    // if demom small return 0 vector
-    
-    float f = numerator / denominator;
-    return f * hit.albedo();
-    // QA: what is meant by index odf reflection -> See above
-    // QA: expected to multiply f with a vector? => welcher Vector => use hit.albedo()
+    const float microfacet = D * G * F / (4.f * NdotI * NdotO);
+    return coated ? glm::vec3(microfacet) : hit.albedo() * microfacet;
 }
 
 std::tuple<glm::vec3, glm::vec3, float> MicrofacetReflection::sample(
