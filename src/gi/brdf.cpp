@@ -12,10 +12,8 @@
 glm::vec3 LambertianReflection::f(const SurfaceHit& hit, const glm::vec3& w_o, const glm::vec3& w_i) const {
     // TODO ASSIGNMENT2
     // evaluate the (normalized!) lambertian diffuse BRDF
-    if (glm::dot(hit.N, w_i) <= 0.0f || glm::dot(hit.N, w_o) <= 0.0f)
-        return glm::vec3(0.0f);
 
-    return hit.albedo() / float(M_PI);
+    return hit.albedo() / PI;
 }
 
 std::tuple<glm::vec3, glm::vec3, float> LambertianReflection::sample(
@@ -141,8 +139,8 @@ glm::vec3 SpecularPhong::f(const SurfaceHit& hit, const glm::vec3& w_o, const gl
     const float index_of_refraction = hit.mat->ior;
 
     const auto h = glm::normalize(w_o + w_i);
-    const auto k_shiny = fresnel_schlick(glm::dot(w_o, h), index_of_refraction); // reflection coefficiant
-    const float reflect_vect_light = std::pow(glm::dot(hit.N, h), exponent);
+    const auto k_shiny = fresnel_schlick(glm::max(glm::dot(w_o, h), 0.0f), index_of_refraction); // reflection coefficiant
+    const float reflect_vect_light = std::pow(glm::max(glm::dot(hit.N, h), 0.0f), exponent);
     const float conserve_energy = (exponent + 1.0f) / (2.0f * PI); // lecture 4 page 10
 
     return hit.albedo() * k_shiny * reflect_vect_light * conserve_energy; // calculate entire, not just 

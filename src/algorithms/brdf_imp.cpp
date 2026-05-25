@@ -34,11 +34,21 @@ struct BRDFImportance : public Algorithm {
                     if (UNIFORM) {
                         // TODO ASSIGNMENT2
                         // implement Monte Carlo integration via uniform hemisphere sampling here
-                        // - draw a uniform random sample on the hemisphere in tangent space and transform it into
-                        // world-space
+                        // sample
+                        // how to monte-carlo-integration?
+                        const vec3 w_o = -ray.dir;
+                        const vec3 w_i_tangent_space = uniform_sample_hemisphere(RNG::uniform<vec2>());
+                        const vec3 w_i = tangent_to_world(hit.N, w_i_tangent_space);
+                        const float cos_i = glm::max(0.f, dot(hit.N, w_i));
+                    
+                        // - draw a uniform random sample on the hemisphere in tangent space and transform it into world-space
                         // - intersect the ray with the scene and check if you hit a light source
-                        // - if a light source was hit, compute the irradiance via the given equation
-                        L = hit.albedo();
+                        Ray secondary_ray(hit.P, w_i);
+                        const SurfaceHit hit = scene.intersect(secondary_ray);
+                        if (hit.valid && hit.is_light()) {
+                            // - if a light source was hit, compute the irradiance via the given equation
+                            L = hit.Le() * hit.f(w_o, w_i) *  cos_i / uniform_hemisphere_pdf();
+                        }
                     } else {
                         // TODO ASSIGNMENT2
                         // implement Monte Carlo integration via BRDF imporance sampling here

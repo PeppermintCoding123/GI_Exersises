@@ -113,31 +113,42 @@ inline glm::vec3 uniform_sample_hemisphere(const glm::vec2& sample) {
     // TODO ASSIGNMENT2
     // generate a uniform distributed tangent space direction on the unit hemisphere from a random sample in [0, 1)
     // hint: use a spherical coordinate system
-    // https://blog.thomaspoulet.fr/posts/uniform-sampling-on-a-unit-hemisphere/
-    // radius set to 1
-    float theta = acosf(1 - sample.x);
-    float phi = 2 * PI * sample.y;
-    return glm::vec3(sinf(theta) * cosf(phi), sinf(theta) * sinf(phi), cosf(theta));
+    // see: https://sibaku.github.io/site/sampling/2d/directions/uniform_unit_hemisphere/
+    const float phi = 2.f * PI * sample.y;
+    const float cosTheta = sample.x;
+    const float sinTheta = sqrtf(glm::max(1.f - cosTheta * cosTheta, 0.f));
+
+    float x = cos(phi) * sinTheta;
+    float y = sin(phi) * sinTheta;
+    float z = cosTheta;
+    
+    return glm::vec3(x, y, z);
+
 }
 inline float uniform_hemisphere_pdf() {
     // TODO ASSIGNMENT2
     // return the pdf of a uniform hemisphere sample in terms of solid angle
-
-    // MY Version: still follow instructions? TODO!!!
-    // https://ameye.dev/notes/sampling-the-hemisphere/
-    return 1 / (2 * PI);
+    return INV2PI;
 }
 
 // hemisphere (cosine distributed tangent space direction)
 inline glm::vec3 cosine_sample_hemisphere(const glm::vec2& sample) {
     // TODO ASSIGNMENT2
     // generate a cosine distributed tangent space direction on the unit hemisphere from sample in [0, 1)
-    return glm::vec3(0);
+    // hint: use the concentric disk sampling above to get a cosine distributed direction in the xy-plane and then
+    // compute the z component via the cosine distribution
+    // see: https://sibaku.github.io/site/sampling/2d/directions/c
+    const glm::vec2 diskSample = concentric_sample_disk(sample);
+    const float x = diskSample.x;
+    const float y = diskSample.y;
+    const float z = sqrtf(glm::max(0.f, 1.f - x * x - y * y));
+    return glm::vec3(x, y, z);
 }
 inline float cosine_hemisphere_pdf(float cos_t) {
     // TODO ASSIGNMENT2
     // return the pdf of a cosine hemisphere sample in terms of solid angle
-    return 0.f;
+    // see https://nothingtosay0031.github.io/Graphics/Sampling
+    return cos_t * INVPI;
 }
 
 // sphere (uniform distributed tangent space direction)
