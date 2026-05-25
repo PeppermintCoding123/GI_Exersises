@@ -8,17 +8,18 @@
 // Approximations
 
 inline float fresnel_schlick(float cos_i, float index_of_refraction) {
-    float R_0 = index_of_refraction;
-    return R_0 + (1.0f - R_0) * powf(1.0f - cos_i, 5.0f);
+    // TODO ASSIGNMENT2
+    // implement Schlick's approximation
+    const auto R0 = std::pow((1 - index_of_refraction) / (1 + index_of_refraction), 2.0f);
+    return R0 + (1.0f + R0) * std::pow(1 - cos_i, 5.0f);
 }
 
 // -------------------------------------------------------------------
 // Dielectric materials
 
 inline float fresnel_dielectric(float cos_wi, float ior_medium, float ior_material) {
-    throw std::runtime_error(
-        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
-    );
+    // simply use schlick's approximation for now (for the LayeredSurface BRDF to work)
+    return fresnel_schlick(cos_wi, ior_material);
 }
 
 // -------------------------------------------------------------------
