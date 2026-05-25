@@ -30,12 +30,11 @@ struct BRDFImportance : public Algorithm {
                 if (hit.is_light())
                     L = hit.Le();
                 else {
-                    constexpr bool UNIFORM = true;
+                    constexpr bool UNIFORM = false;
                     if (UNIFORM) {
                         // TODO ASSIGNMENT2
                         // implement Monte Carlo integration via uniform hemisphere sampling here
-                        // sample
-                        // how to monte-carlo-integration?
+                        // Q: how to monte-carlo-integration?
                         const vec3 w_o = -ray.dir;
                         const vec3 w_i_tangent_space = uniform_sample_hemisphere(RNG::uniform<vec2>());
                         const vec3 w_i = tangent_to_world(hit.N, w_i_tangent_space);
@@ -47,16 +46,28 @@ struct BRDFImportance : public Algorithm {
                         const SurfaceHit hit = scene.intersect(secondary_ray);
                         if (hit.valid && hit.is_light()) {
                             // - if a light source was hit, compute the irradiance via the given equation
-                            L = hit.Le() * hit.f(w_o, w_i) *  cos_i / uniform_hemisphere_pdf();
+                            // QA: what should the Le(w_i)be? => Le(w_i) is the radiance emitted by the light source in direction w_i, which can be obtained via hit.Le() (see hit.h)
+                            L = hit.albedo() * hit.f(w_o, w_i) *  cos_i / uniform_hemisphere_pdf();
                         }
                     } else {
                         // TODO ASSIGNMENT2
                         // implement Monte Carlo integration via BRDF imporance sampling here
-                        // - sample the brdf (BRDF::sample) for a outgoing direction instead of uniform sampling of the
-                        // hemisphere
+                        // - sample the brdf (BRDF::sample) for a outgoing direction instead of uniform sampling of the hemisphere
+                        const vec3 w_o = -ray.dir;
+                        const vec3 w_i_tangent_space = cosine_sample_hemisphere(RNG::uniform<vec2>());
+                        const vec3 w_i = tangent_to_world(hit.N, w_i_tangent_space);
+                        const float cos_i = glm::max(0.f, dot(hit.N, w_i));
+                        
                         // - intersect the ray with the scene and check if you hit a light source
-                        // - if a light source was hit, compute the irradiance via the given equation
-                        L = hit.albedo();
+                        Ray secondary_ray(hit.P, w_i);
+                        const SurfaceHit hit = scene.intersect(secondary_ray);
+                        if (hit.valid && hit.is_light()) {
+                            // - if a light source was hit, compute the irradiance via the given equation
+                            const float theta_i = acosf(cos_i);
+                            L = hit.albedo() * hit.f(w_o, w_i) *  cos_i / cosine_hemisphere_pdf(theta_i);
+                        }
+
+                        
                     }
                 }
             } else // ray esacped the scene
