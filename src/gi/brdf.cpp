@@ -209,6 +209,7 @@ glm::vec3 GGX_sample(const glm::vec2& sample, float roughness) {
 inline float GGX_pdf(float D, float NdotH, float HdotV) {
     // TODO ASSIGNMENT2 (optional)
     // compute the microfacet PDF here
+    // from microfacet paper: Eq 14 jacobina = 1 / (4 * HdotV), Eq 24 p_m = D * NdotH, Eq 38 p_i = p_m * jacobina  
     const auto pdf = /* std::abs */(D * NdotH) / /* std::abs */(4 * HdotV);
     if(!std::isfinite(pdf) || pdf == 0.f){return 1.f;}
     return pdf;
@@ -246,27 +247,18 @@ std::tuple<glm::vec3, glm::vec3, float> MicrofacetReflection::sample(
     // TODO ASSIGNMENT2
     // importance sample and evaluate this microfacet BRDF
     // set w_i to the sampled (world-space!) direction, pdf to the respective PDF and brdf to the evaluated BRDF
-    const glm::vec3 w_i_tangent_space = uniform_sample_hemisphere(sample);
-    const glm::vec3 w_i = tangent_to_world(hit.N, w_i_tangent_space);
-    const glm::vec3 brdf = f(hit, w_o, w_i);
-    
     // from Paper: GGX BRDF
     // Draw a tangent space micro normal from a random sample using Eq 35 & 36
-    float alpha = hit.roughness();
-    float theta_m = atan(alpha * sqrtf(sample.x) / sqrtf(1 - sample.x)); // 35
-    float phi_m = 2 * PI * sample.y; // 36
+    const glm::vec3 m_tangent = GGX_sample(sample, hit.roughness());
 
-    // compute pdf with Eq 14, 24,38
-    glm::vec3 h = glm::normalize(w_i + w_o);
-    float NdotH = glm::dot(hit.N, h);
-    float D = GGX_D(NdotH, alpha);
-
-    float jacobian = 1.0f / (4.0f * glm::dot(w_o, h)); // Eq 14 jacobian = dw_h/dw_0
-    float p_m = D * cos(theta_m); // Eq 24 p_m = probability of generating any m using given sampling equasion
-    float p_o = p_m / jacobian; // Eq 38 p_o = probability of generating w_i via sampling m and reflecting w_o about m
-
-    const float pdf = D * p_o; // GGX_pdf(D, NdotH, OdotH);
+    
+    const float D_m = GGX_D(m_tangent.z, hit.roughness());
+    const glm::vec3 m_world = hit.to_world(m_tangent); // transform micro normal to world space
+    const glm::vec3 w_i = mirror(w_o, m_world);
+    const glm::vec3 brdf = MicrofacetReflection::f(hit, w_o, w_i);
+    const float pdf = GGX_pdf(D_m, glm::dot(m_world, hit.N), glm::dot(w_o, m_world));
     return {brdf, w_i, pdf};
+
 }
 
 float MicrofacetReflection::pdf(const SurfaceHit& hit, const glm::vec3& w_o, const glm::vec3& w_i) const {
