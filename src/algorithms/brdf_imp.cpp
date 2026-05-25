@@ -30,7 +30,7 @@ struct BRDFImportance : public Algorithm {
                 if (hit.is_light())
                     L = hit.Le();
                 else {
-                    constexpr bool UNIFORM = true;
+                    constexpr bool UNIFORM = false;
                     if (UNIFORM) {
                         // TODO ASSIGNMENT2
                         // implement Monte Carlo integration via uniform hemisphere sampling here
@@ -53,16 +53,14 @@ struct BRDFImportance : public Algorithm {
                         // - intersect the ray with the scene and check if you hit a light source
                         // - if a light source was hit, compute the irradiance via the given equation
                         const vec3 w_o = -ray.dir;
-                        const vec3 w_i_tangent_space = cosine_sample_hemisphere(RNG::uniform<vec2>());
-                        const vec3 w_i = tangent_to_world(hit.N, w_i_tangent_space);
-
+                        const auto [brdf, w_i, pdf] = hit.sample(-ray.dir, RNG::uniform<vec2>());
                         const float cos_i = fmaxf(0.f, dot(hit.N, w_i));
                         Ray secondary_ray(hit.P, w_i);
-                        const SurfaceHit hit = scene.intersect(secondary_ray);
+                        const SurfaceHit light_hit = scene.intersect(secondary_ray);
 
-                        if (hit.valid && hit.is_light()) {
+                        if (light_hit.valid && light_hit.is_light()) {
                             const float theta_i = acosf(cos_i);
-                            L = hit.albedo() * hit.f(w_o, w_i) *  cos_i / cosine_hemisphere_pdf(theta_i);
+                            L += light_hit.Le() * hit.f(w_o, w_i) *  cos_i / pdf;
                         }
                     }
                 }

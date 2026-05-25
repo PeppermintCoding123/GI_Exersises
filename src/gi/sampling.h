@@ -132,7 +132,7 @@ inline glm::vec3 uniform_sample_hemisphere(const glm::vec2& sample) {
 inline float uniform_hemisphere_pdf() {
     // TODO ASSIGNMENT2
     // return the pdf of a uniform hemisphere sample in terms of solid angle
-    return 1.f / (2.f * PI);;
+    return INV2PI;
 }
 
 // hemisphere (cosine distributed tangent space direction)
@@ -147,7 +147,7 @@ inline glm::vec3 cosine_sample_hemisphere(const glm::vec2& sample) {
 inline float cosine_hemisphere_pdf(float cos_t) {
     // TODO ASSIGNMENT2
     // return the pdf of a cosine hemisphere sample in terms of solid angle
-    return cos_t/ (PI);
+    return cos_t * INVPI;
 }
 
 // sphere (uniform distributed tangent space direction)
