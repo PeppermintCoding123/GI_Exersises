@@ -42,61 +42,6 @@ struct SimpleRenderer : public Algorithm {
             // add result to framebuffer
             context.fbo.add_sample(x, y, L);
         }
-
-        /* // some shortcuts
-        const Camera& cam = context.cam;
-        const Scene& scene = context.scene;
-        Framebuffer& fbo = context.fbo;
-        const size_t w = fbo.width(), h = fbo.height();
-
-        // ASSIGNMENT1
-        // - add and initialize random samplers
-        // - apply supersampling over #samples and DOF using your samplers
-        auto sampler = LDSampler2D();
-        sampler.init(samples);
-        auto lens_sampler = LDSampler2D();
-        lens_sampler.init(samples);
-        auto light_select_sampler = UniformSampler1D();
-        light_select_sampler.init(scene.lights.size());  
-        auto light_pos_sampler = HammersleySampler2D();
-        light_pos_sampler.init(samples);
-        
-        for (uint32_t i = 0; i < samples; ++i) {
-            vec3 L(0);
-
-            // setup a view ray
-            Ray ray = cam.view_ray(x, y, w, h, sampler.next(), lens_sampler.next());
-
-            // intersect main ray with scene
-            const SurfaceHit hit = scene.intersect(ray);
-
-            // check if a hit was found
-            if (hit.valid) {
-                if (hit.is_light()) { // direct light source hit
-                    L = hit.Le();
-                } else { // surface hit -> shading
-                    // ASSIGNMENT1
-                    // add area light shading via the rendering equation from the assignment sheet
-                    // hint: use the following c++17 syntax to capture multiple return values:
-                    const auto [light_ptr, ignore_me] = scene.sample_light_source(light_select_sampler.next()); // QA: what happens here -> samples from 1 light source, not from all
-                    auto [Li, shadow_ray, ignore_me2] = light_ptr->sample_Li(hit.P, light_pos_sampler.next());
-                    bool occluded = scene.occluded(shadow_ray);
-                    float cos_theta = glm::max(glm::dot(shadow_ray.dir, hit.N), 0.0f);
-                    if (occluded){
-                        L = hit.albedo() * 0.0f; // mult with !occuded
-                    }else{
-                        L = hit.albedo() * Li*cos_theta; 
-                        
-                    }
-                    
-                }
-            } else { // ray esacped the scene
-                L = scene.Le(ray);
-            }
-
-            // add result to framebuffer
-            fbo.add_sample(x, y, L);
-        */
     }
 };
 

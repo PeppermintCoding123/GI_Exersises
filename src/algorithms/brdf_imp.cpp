@@ -13,61 +13,47 @@ struct BRDFImportance : public Algorithm {
     inline static const std::string name = "BRDFImportance";
 
     void sample_pixel(Context& context, uint32_t x, uint32_t y, uint32_t samples) {
-        // some shortcuts
-        Camera& cam = context.cam;
-        Scene& scene = context.scene;
-        Framebuffer& fbo = context.fbo;
-        size_t w = fbo.width(), h = fbo.height();
-
         for (uint32_t i = 0; i < samples; ++i) {
             vec3 L(0);
             // setup view ray
-            Ray ray = cam.view_ray(x, y, w, h, RNG::uniform<vec2>(), RNG::uniform<vec2>());
+            Ray ray = context.cam.view_ray(
+                x, y, context.fbo.width(), context.fbo.height(), RNG::uniform<vec2>(), RNG::uniform<vec2>()
+            );
             // intersect main ray with scene
-            const SurfaceHit hit = scene.intersect(ray);
+            const SurfaceHit hit = context.scene.intersect(ray);
             // check if a hit was found
             if (hit.valid) {
                 if (hit.is_light())
                     L = hit.Le();
                 else {
-                    constexpr bool UNIFORM = false;
+                    constexpr bool UNIFORM = true;
                     if (UNIFORM) {
-                        // TODO ASSIGNMENT2
-                        // implement Monte Carlo integration via uniform hemisphere sampling here
-                        // - draw a uniform random sample on the hemisphere in tangent space and transform it into
-                        // world-space
-                        // - intersect the ray with the scene and check if you hit a light source
-                        // - if a light source was hit, compute the irradiance via the given equation
-                        const glm::vec3 w_o = -ray.dir; 
-                        const glm::vec3  w_i_local = uniform_sample_hemisphere(RNG::uniform<vec2>());
-                        const glm::vec3  w_i = tangent_to_world(hit.N, w_i_local);
-                        Ray secondary_ray =  Ray(hit.P, w_i);
-                        const SurfaceHit light_hit =scene.intersect(secondary_ray);
-                        if (light_hit.valid && light_hit.is_light()){
-                            L += light_hit.Le() * hit.f(w_o, w_i) * fmaxf(0.f, dot(hit.N, w_i) )/ uniform_hemisphere_pdf();}
-                        
-                    } else {
-                        // TODO ASSIGNMENT2
-                        // implement Monte Carlo integration via BRDF imporance sampling here
-                        // - sample the brdf (BRDF::sample) for a outgoing direction instead of uniform sampling of the hemisphere
-                        // - intersect the ray with the scene and check if you hit a light source
-                        // - if a light source was hit, compute the irradiance via the given equation
-                        const vec3 w_o = -ray.dir;
-                        const auto [brdf, w_i, pdf] = hit.sample(-ray.dir, RNG::uniform<vec2>());
-                        const float cos_i = fmaxf(0.f, dot(hit.N, w_i));
-                        Ray secondary_ray(hit.P, w_i);
-                        const SurfaceHit light_hit = scene.intersect(secondary_ray);
-
-                        if (light_hit.valid && light_hit.is_light()) {
-                            const float theta_i = acosf(cos_i);
-                            L += light_hit.Le() * hit.f(w_o, w_i) *  cos_i / pdf;
+                        const uint32_t N = 1;
+                        for (uint i = 0; i < N; ++i) {
+                            const vec3 w_i = hit.to_world(uniform_sample_hemisphere(RNG::uniform<vec2>()));
+                            const float pdf = uniform_hemisphere_pdf();
+                            Ray secondary_ray = Ray(hit.P, w_i);
+                            const SurfaceHit secondary_hit = context.scene.intersect(secondary_ray);
+                            if (secondary_hit.valid && secondary_hit.is_light() && dot(secondary_hit.N, -w_i) > 0)
+                                L += secondary_hit.Le() * hit.f(-ray.dir, w_i) * fmaxf(0.f, dot(hit.N, w_i)) / pdf;
                         }
+                        L /= float(N);
+                    } else {
+                        const uint32_t N = 1;
+                        for (uint i = 0; i < N; ++i) {
+                            const auto [brdf, w_i, pdf] = hit.sample(-ray.dir, RNG::uniform<vec2>());
+                            Ray secondary_ray = Ray(hit.P, w_i);
+                            const SurfaceHit secondary_hit = context.scene.intersect(secondary_ray);
+                            if (secondary_hit.valid && secondary_hit.is_light() && dot(secondary_hit.N, -w_i) > 0)
+                                L += secondary_hit.Le() * brdf * fmaxf(0.f, dot(hit.N, secondary_ray.dir)) / pdf;
+                        }
+                        L /= float(N);
                     }
                 }
             } else // ray esacped the scene
-                L = scene.Le(ray);
+                L = context.scene.Le(ray);
             // add result to framebuffer
-            fbo.add_sample(x, y, L);
+            context.fbo.add_sample(x, y, L);
         }
     }
 };

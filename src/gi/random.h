@@ -135,26 +135,21 @@ class UniformSampler1D : public Sampler<float> {
 
 class StratifiedSampler1D : public Sampler<float> {
   public:
-    float stratum_previous;
-    float stratum_width;
     inline void init(uint32_t N) {
-        // TODO ASSIGNMENT1
-        // devide region into equally sized subregions
-        // use Uniform in the strata
-        // How many strata = N
-        // Each stratum will have width 1.0 / N
-        stratum_width = 1.f / N;
-        stratum_previous = 0.f;
+        i = 0;
+        nx = N;
+        inv_nx = 1.f / float(nx);
     }
 
     inline float next() {
-        // TODO ASSIGNMENT1
-        // return the next stratified sample
-        STAT("stratified sampling");
-        float temp =  stratum_previous + RNG::uniform<float>() * stratum_width;
-        stratum_previous += stratum_width;
-        return temp;
+        assert(i < nx);
+        STAT("random sampling");
+        return (i++ + RNG::uniform<float>()) * inv_nx;
     }
+
+  private:
+    uint32_t i, nx;
+    float inv_nx;
 };
 
 // --------------------------------------------------------------------------------
@@ -166,109 +161,84 @@ class UniformSampler2D : public Sampler<glm::vec2> {
 
     inline glm::vec2 next() {
         STAT("random sampling");
-        glm::vec2 temp = RNG::uniform<glm::vec2>();
-        return temp;
+        return RNG::uniform<glm::vec2>();
     }
 };
 
 class StratifiedSampler2D : public Sampler<glm::vec2> {
   public:
-    /*glm::vec2 stratum_previous;
-    float sqrt_one_div_N;*/
-    uint32_t position_x = 0;
-    uint32_t position_y = 0;
-    uint32_t grid_width;
-    float ind_width;
-    StratifiedSampler1D stratX;
-    StratifiedSampler1D stratY;
     inline void init(uint32_t N) {
-        // TODO ASSIGNMENT1
-        // note: you may assume N to be quadratic
-        /*sqrt_one_div_N = 1.f / sqrtf(float(N));
-        stratum_previous = glm::vec2(0.f);*/
-        grid_width = sqrtf(float(N));
-        ind_width= 1.f / grid_width;
-
-        stratX.init(sqrt(N));
-        stratY.init(sqrt(N));
-        //position_x = 0;
-    position_y = 0;
+        i = 0;
+        nx = ny = std::sqrt(N);
+        inv_nx = 1.f / float(nx);
+        inv_ny = 1.f / float(ny);
+        static volatile bool stop_spam = false;
+        if (sqrtf(N) != nx && !stop_spam) {
+            std::cerr << "WARNING: StratifiedSampler: Sample count not quadratic, expect artifacts!" << std::endl;
+            stop_spam = true;
+        }
     }
 
     inline glm::vec2 next() {
-        // TODO ASSIGNMENT1
-        // return the next stratified sample
-        STAT("stratified sampling 2D");
-        // 2 - 3 Zeilen
-
-        float sx =( position_x + RNG::uniform<float>()) * ind_width;
-        float sy =(position_y + RNG::uniform<float>()) * ind_width;
-        if(position_x == grid_width - 1){
-            position_x = 0; 
-            position_y++;
-        } else {
-            position_x++;
-        }
-        return glm::vec2(sx, sy);
+        assert(i < nx * ny);
+        STAT("random sampling");
+        uint32_t x = i % nx;
+        uint32_t y = i / nx;
+        i = (i + 1) % (nx * ny);
+        return glm::vec2((x + RNG::uniform<float>()) * inv_nx, (y + RNG::uniform<float>()) * inv_ny);
     }
+
+  private:
+    uint32_t i, nx, ny;
+    float inv_nx, inv_ny;
 };
 
 class HaltonSampler2D : public Sampler<glm::vec2> {
   public:
-    glm::vec2 x_and_y_previous;
-    inline void init(uint32_t N) {
-        // TODO ASSIGNMENT1
-        // note: bases 2 and 3 are commonly used
-        STAT("Halton sampling 2D");
-        x_and_y_previous = glm::vec2(N, N);
-    }
+    inline void init(uint32_t N) { i = 0; }
 
     inline glm::vec2 next() {
-        // TODO ASSIGNMENT1
-        // note: see helper function halton() above
-        return glm::vec2(halton(x_and_y_previous.x--, 2), halton(x_and_y_previous.y--, 3)); // work backwards
+        STAT("random sampling");
+        ++i;
+        return glm::vec2(halton(i, 2), halton(i, 3));
     }
+
+  private:
+    uint32_t i;
 };
 
-// LisaTODO: Woher kommt das? Hintergrund der Funktion
 class HammersleySampler2D : public Sampler<glm::vec2> {
   public:
-    uint32_t i_previous;
-    uint32_t n;
-    float seed;
     inline void init(uint32_t N) {
-        // TODO ASSIGNMENT1
-        // note: use a random seed
-        STAT("Hammersley sampling 2D");
-        seed = RNG::uniform<uint32_t>();
-        i_previous = 0;
-        n = N;
+        i = 0;
+        this->N = N + 1;
+        scramble = RNG::uniform<uint32_t>();
     }
 
     inline glm::vec2 next() {
-        // TODO ASSIGNMENT1
-        // note: see helper function hammersley() above
-        return hammersley(i_previous++, n, seed);
+        STAT("random sampling");
+        return hammersley(++i, N, scramble);
     }
+
+  private:
+    uint32_t i, N, scramble;
 };
 
 class LDSampler2D : public Sampler<glm::vec2> {
   public:
-    uint32_t i_previous;
-    uint32_t seed[2];
     inline void init(uint32_t N) {
-        // TODO ASSIGNMENT1
-        // note: use two random seeds
-        STAT("Low-discrepancy sampling 2D");
-        seed[0] = RNG::uniform<uint32_t>();
-        seed[1] = RNG::uniform<uint32_t>();
+        i = 0;
+        scramble[0] = RNG::uniform<uint32_t>();
+        scramble[1] = RNG::uniform<uint32_t>();
     }
 
     inline glm::vec2 next() {
-        // TODO ASSIGNMENT1
-        // note: see helper function sample02() above
-        return sample02(i_previous++, seed);
+        STAT("random sampling");
+        return sample02(i++, scramble);
     }
+
+  private:
+    uint32_t i, scramble[2];
 };
 
 // --------------------------------------------------------------------------------

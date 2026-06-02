@@ -31,10 +31,7 @@ Ray Camera::view_ray(
 }
 
 Ray Camera::perspective_view_ray(uint32_t x, uint32_t y, uint32_t w, uint32_t h, const glm::vec2& pixel_sample) const {
-    // ASSIGNMENT1
-    // jitter the view ray to sub-sample the pixel (x, y) using the given random sample "pixel_sample"
-    // QA: is this correct? Yes - converts pixel coords to normalized device coords relative to image center (normalized device center hole)
-    const glm::vec2 pixel = glm::vec2(x, y) + pixel_sample; // jitter pixel
+    const glm::vec2 pixel = glm::vec2(x, y) + pixel_sample;
     const glm::vec2 ndch = (pixel - glm::vec2(w * .5f, h * .5f)) / glm::vec2(h);
     const float z = -.5f / tanf(.5f * M_PI * fov / 180.f);
     return Ray(pos, eye_to_world * glm::normalize(glm::vec3(ndch.x, ndch.y, z)));
@@ -51,17 +48,6 @@ void Camera::apply_DOF(Ray& ray, const glm::vec2& lens_sample) const {
     const glm::vec3 view_dir = this->dir;
     const auto [tangent, bitangent] = build_tangent_frame(view_dir);
     const glm::vec2 p_on_lens = uniform_sample_disk(lens_sample); // mapping from unit quad to unit circle
-    // ASSIGNMENT1
-    // add DOF to the given view ray (in-place)
-    // thus, jitter the ray origin on the (circular) thin lens and update the ray's direction to the focal point
-    // hint: use the coordinate system given via the tangent and bitangent to jitter the ray's origin
-    // hint: the lens size is given in this->lens_radius and the focal distance in this->focal_depth
-    // DO this
-    /*const glm::vec3 focus_point = ray.org + focal_depth * ray.dir / glm::dot(ray.dir, view_dir); // line thrue center => focus
-    ray.org += lens_radius * tangent * p_on_lens.x + lens_radius * bitangent * p_on_lens.y; // project to point on to circle
-    ray.dir = glm::normalize(focus_point - ray.org);*/ // new ray from new origin 
-    // diw botproduk cam direct & ray direct
-
     ray.org += lens_radius * (p_on_lens.x * tangent + p_on_lens.y * bitangent);
     // compute focus point and update ray direction
     const float ft = focal_depth / fmaxf(1e-4f, glm::dot(view_dir, ray.dir));

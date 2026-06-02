@@ -15,6 +15,9 @@ Distribution1D::Distribution1D()
 
 Distribution1D::Distribution1D(const float* f, uint32_t N)
     : func(f, f + N), cdf(N + 1) {
+    // TODO ASSIGNMENT3
+    // build a CDF from given discrete function values and ensure a density
+    // Hint: take extra care regarding corner-cases!
     f_integral = N;
 }
 
@@ -39,10 +42,16 @@ float Distribution1D::pdf(size_t index) const {
 }
 
 std::tuple<float, float> Distribution1D::sample_01(float sample) const {
+    // TODO ASSIGNMENT3
+    // draw a sample in [0, 1) according to this distribution and the respective PDF
+    // hint: a piecewise constant function is assumed, so you may linearly interpolate between function values
     return {sample, 1.f / size()};
 }
 
 std::tuple<uint32_t, float> Distribution1D::sample_index(float sample) const {
+    // TODO ASSIGNMENT3
+    // sample an index in [0, n) according to this distribution and the respective PDF
+    // note: take care about proper normalization of the PDF!
     return {sample * size(), 1.f / size()};
 }
 
@@ -50,19 +59,30 @@ std::tuple<uint32_t, float> Distribution1D::sample_index(float sample) const {
 // Distribution2D
 
 Distribution2D::Distribution2D(const float* f, uint32_t w, uint32_t h) {
+    // TODO ASSIGNMENT3
+    // build conditional and marginal distributions from linearized array of function values
+    // hint: use f[y * w + x] to get the value at (x, y)
+    // hint: you may re-use the Distribution1D
+    // hint: use plot_heatmap(*this, w, h) to plot this distribution for debugging or validation
 }
 
 Distribution2D::~Distribution2D() {}
 
 double Distribution2D::integral() const {
+    // TODO ASSIGNMENT3
+    // return the integral here
     return 1.f;
 }
 
 double Distribution2D::unit_integral() const {
+    // TODO ASSIGNMENT3
+    // return the unit integral here
     return 1.f;
 }
 
 std::tuple<glm::vec2, float> Distribution2D::sample_01(const glm::vec2& sample) const {
+    // TODO ASSIGNMENT3
+    // draw a two-dimensional sample in [0, 1) from this distribution and compute its PDF
     return {sample, 1.f};
 }
 
