@@ -74,9 +74,9 @@ inline float vandercorput(uint32_t i, uint32_t scramble) {
     i = ((i & 0x00ff00ff) << 8) | ((i & 0xff00ff00) >> 8);
     i = ((i & 0x0f0f0f0f) << 4) | ((i & 0xf0f0f0f0) >> 4);
     i = ((i & 0x33333333) << 2) | ((i & 0xcccccccc) >> 2);
-    i = ((i & 0x55555555) << 1) | ((i & 0xaaaaaaaa) >> 1); // Bit reversal / permutation
-    i ^= scramble; // XOR with scramble
-    return ((i >> 8) & 0xffffff) / float(1 << 24); // make float in [0,1)
+    i = ((i & 0x55555555) << 1) | ((i & 0xaaaaaaaa) >> 1);
+    i ^= scramble;
+    return ((i >> 8) & 0xffffff) / float(1 << 24);
 }
 
 /**
@@ -130,8 +130,6 @@ class UniformSampler1D : public Sampler<float> {
         return RNG::uniform<float>();
     }
 };
-
-// QA: Have I applied the effects correctly? Some estup - why is screen black? -> ja, passt
 
 class StratifiedSampler1D : public Sampler<float> {
   public:
