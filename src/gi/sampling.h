@@ -4,8 +4,6 @@
 
 #include <tuple>
 
-#include <stdexcept>
-#include <string>
 
 // ------------------------------------------------
 // utility functions
@@ -110,68 +108,45 @@ inline glm::vec2 uniform_sample_triangle(const glm::vec2& sample) {
 
 // hemisphere (uniform distributed tangent space direction)
 inline glm::vec3 uniform_sample_hemisphere(const glm::vec2& sample) {
-    // TODO ASSIGNMENT2
-    // generate a uniform distributed tangent space direction on the unit hemisphere from a random sample in [0, 1)
-    // hint: use a spherical coordinate system
-     // spherical coordinates
-    const float phi = 2.f * PI * sample.x;
-
-    // height on hemisphere
-    const float z = sample.y;
-
-    // radius of circle at height z
-    const float r = sqrtf(fmaxf(0.f, 1.f - z * z));
-
-    // convert spherical -> cartesian
-    const float x = r * cosf(phi);
-    const float y = r * sinf(phi);
-
-    return glm::vec3(x, y, z);
-   
+    const float z = sample.x;
+    const float r = sqrtf(fmaxf(0, 1 - z * z));
+    const float phi = 2 * PI * sample.y;
+    return glm::vec3(r * cosf(phi), r * sinf(phi), z);
 }
 inline float uniform_hemisphere_pdf() {
-    // TODO ASSIGNMENT2
-    // return the pdf of a uniform hemisphere sample in terms of solid angle
     return INV2PI;
 }
 
 // hemisphere (cosine distributed tangent space direction)
 inline glm::vec3 cosine_sample_hemisphere(const glm::vec2& sample) {
-    // TODO ASSIGNMENT2
-    // generate a cosine distributed tangent space direction on the unit hemisphere from sample in [0, 1)
-    const glm::vec2 disk = concentric_sample_disk(sample);
-    const float z = sqrtf( fmaxf(0.f, 1.f - disk.x * disk.x- disk.y*disk.y));
-
-    return glm::vec3(disk.x, disk.y, z);
+    const glm::vec2 d = uniform_sample_disk(sample);
+    const float z = 1 - sqr(d.x) - sqr(d.y);
+    return glm::vec3(d.x, d.y, z > 0 ? sqrtf(z) : 0.f);
 }
 inline float cosine_hemisphere_pdf(float cos_t) {
-    // TODO ASSIGNMENT2
-    // return the pdf of a cosine hemisphere sample in terms of solid angle
-    return cos_t * INVPI;
+    return cos_t / PI;
 }
 
 // sphere (uniform distributed tangent space direction)
 inline glm::vec3 uniform_sample_sphere(const glm::vec2& sample) {
-    throw std::runtime_error(
-        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
-    );
+    const float z = 1.f - 2.f * sample.x;
+    const float r = sqrtf(fmaxf(0.f, 1.f - z * z));
+    const float phi = 2.f * PI * sample.y;
+    return glm::vec3(r * cosf(phi), r * sinf(phi), z);
 }
 inline float uniform_sphere_pdf() {
-    throw std::runtime_error(
-        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
-    );
+    return INV4PI;
 }
 
 // cone -> uniform distributed tangent space direction
 inline glm::vec3 uniform_sample_cone(const glm::vec2& sample, float cos_tMax) {
-    throw std::runtime_error(
-        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
-    );
+    const float cos_t = (1.f - sample.x) + sample.x * cos_tMax;
+    const float sin_t = sqrtf(1.f - cos_t * cos_t);
+    const float phi = sample.y * 2.f * PI;
+    return glm::vec3(cosf(phi) * sin_t, sinf(phi) * sin_t, cos_t);
 }
 inline float uniform_cone_pdf(float cos_tMax) {
-    throw std::runtime_error(
-        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
-    );
+    return 1.f / (2.f * PI * (1.f - cos_tMax));
 }
 
 // ------------------------------------------------

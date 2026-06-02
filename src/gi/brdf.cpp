@@ -9,151 +9,122 @@
 // Diffuse lambertian reflection
 
 glm::vec3 LambertianReflection::f(const SurfaceHit& hit, const glm::vec3& w_o, const glm::vec3& w_i) const {
-    // TODO ASSIGNMENT2
-    // evaluate the (normalized!) lambertian diffuse BRDF
-    if (glm::dot(hit.N, w_i) <= 0.0f || glm::dot(hit.N, w_o) <= 0.0f)
-        return glm::vec3(0.0f);
-
-    return hit.albedo() / float(M_PI);
-    //return glm::vec3(0);
+    if (dot(hit.N, w_o) <= 0 || dot(hit.N, w_i) <= 0) return glm::vec3(0);
+    return hit.albedo() * INVPI;
 }
 
 std::tuple<glm::vec3, glm::vec3, float> LambertianReflection::sample(
     const SurfaceHit& hit, const glm::vec3& w_o, const glm::vec2& sample
 ) const {
-    // TODO ASSIGNMENT2
-    // importance sample and evaluate the lambertian diffuse BRDF
-    // set w_i to the sampled (world-space!) direction, pdf to the respective PDF and brdf to the evaluated BRDF
-    // importance sampling here is cosine sampling of hemisphere => see lecture 6
-    const auto w_i_tangent_space = cosine_sample_hemisphere(sample);
-    const glm::vec3 w_i = hit.to_world(w_i_tangent_space);
-    const glm::vec3 brdf = f(hit, w_o, w_i);
-    const float pdf = cosine_hemisphere_pdf(w_i_tangent_space.z);;
-    return {brdf, w_i, pdf};
+    glm::vec3 w_i = hit.to_world(cosine_sample_hemisphere(sample));
+    if (dot(hit.N, w_i) < 0.f) w_i *= -1.f;
+    return {f(hit, w_o, w_i), w_i, pdf(hit, w_o, w_i)};
 }
 
 float LambertianReflection::pdf(const SurfaceHit& hit, const glm::vec3& w_o, const glm::vec3& w_i) const {
-    throw std::runtime_error(
-        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
-    );
+    return std::max(0.f, dot(hit.N, w_i)) * INVPI;
 }
 
 // ----------------------------------------------------------------------------------------------
 // Diffuse lambertian transmission
 
 glm::vec3 LambertianTransmission::f(const SurfaceHit& hit, const glm::vec3& w_o, const glm::vec3& w_i) const {
-    throw std::runtime_error(
-        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
-    );
+    return hit.albedo() * INVPI;
 }
 
 std::tuple<glm::vec3, glm::vec3, float> LambertianTransmission::sample(
     const SurfaceHit& hit, const glm::vec3& w_o, const glm::vec2& sample
 ) const {
-    throw std::runtime_error(
-        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
-    );
+    glm::vec3 w_i = hit.to_world(cosine_sample_hemisphere(sample));
+    if (dot(hit.N, w_o) > 0.f) w_i *= -1.f;
+    return {f(hit, w_o, w_i), w_i, pdf(hit, w_o, w_i)};
 }
 
 float LambertianTransmission::pdf(const SurfaceHit& hit, const glm::vec3& w_o, const glm::vec3& w_i) const {
-    throw std::runtime_error(
-        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
-    );
+    return abs(dot(hit.N, w_i)) * INVPI;
 }
 
 // ----------------------------------------------------------------------------------------------
 // Perfect specular reflection
 
 glm::vec3 SpecularReflection::f(const SurfaceHit& hit, const glm::vec3& w_o, const glm::vec3& w_i) const {
-    throw std::runtime_error(
-        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
-    );
+    return glm::vec3(0);
 }
 
 std::tuple<glm::vec3, glm::vec3, float> SpecularReflection::sample(
     const SurfaceHit& hit, const glm::vec3& w_o, const glm::vec2& sample
 ) const {
-    throw std::runtime_error(
-        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
-    );
+    const glm::vec3 w_i = reflect(-w_o, hit.N);
+    const glm::vec3 brdf = fresnel_dielectric(dot(hit.N, w_i), 1.f, hit.mat->ior) * hit.albedo() / abs(dot(hit.N, w_i));
+    return {brdf, w_i, 1.f};
 }
 
 float SpecularReflection::pdf(const SurfaceHit& hit, const glm::vec3& w_o, const glm::vec3& w_i) const {
-    throw std::runtime_error(
-        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
-    );
+    return 0.f;
 }
 
 // ----------------------------------------------------------------------------------------------
 // Perfect specular transmission
 
 glm::vec3 SpecularTransmission::f(const SurfaceHit& hit, const glm::vec3& w_o, const glm::vec3& w_i) const {
-    throw std::runtime_error(
-        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
-    );
+    return glm::vec3(0);
 }
 
 std::tuple<glm::vec3, glm::vec3, float> SpecularTransmission::sample(
     const SurfaceHit& hit, const glm::vec3& w_o, const glm::vec2& sample
 ) const {
-    throw std::runtime_error(
-        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
-    );
+    const auto [valid, w_i] = refract(-w_o, hit.N, hit.mat->ior);
+    if (!valid) return {glm::vec3(0), w_i, 0.f};
+    const glm::vec3 brdf =
+        (1.f - fresnel_dielectric(dot(hit.N, w_i), 1.f, hit.mat->ior)) * hit.albedo() / abs(dot(hit.N, w_i));
+    // TODO: account for non-symmetric transport
+    return {brdf, w_i, 1.f};
 }
 
 float SpecularTransmission::pdf(const SurfaceHit& hit, const glm::vec3& w_o, const glm::vec3& w_i) const {
-    throw std::runtime_error(
-        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
-    );
+    return 0.f;
 }
 
 // ----------------------------------------------------------------------------------------------
 // Specular fresnel
 
 glm::vec3 SpecularFresnel::f(const SurfaceHit& hit, const glm::vec3& w_o, const glm::vec3& w_i) const {
-    throw std::runtime_error(
-        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
-    );
+    return glm::vec3(0);
 }
 
 std::tuple<glm::vec3, glm::vec3, float> SpecularFresnel::sample(
     const SurfaceHit& hit, const glm::vec3& w_o, const glm::vec2& sample
 ) const {
-    throw std::runtime_error(
-        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
-    );
+    const float p_r = fresnel_dielectric(dot(hit.N, w_o), 1.f, hit.mat->ior);
+    if (sample.x < p_r) { // sample reflection
+        const glm::vec3 w_i = reflect(-w_o, hit.N);
+        const glm::vec3 brdf =
+            fresnel_dielectric(dot(hit.N, w_i), 1.f, hit.mat->ior) * hit.albedo() / abs(dot(hit.N, w_i));
+        return {brdf, w_i, p_r};
+    } else { // sample refraction
+        const auto [valid, w_i] = refract(-w_o, hit.N, hit.mat->ior);
+        if (!valid) return {glm::vec3(0), w_i, 0.f}; // TIR
+        const glm::vec3 brdf =
+            (1.f - fresnel_dielectric(dot(hit.N, w_i), 1.f, hit.mat->ior)) * hit.albedo() / abs(dot(hit.N, w_i));
+        // TODO: account for non-symmetric transport
+        return {brdf, w_i, 1 - p_r};
+    }
 }
 
 float SpecularFresnel::pdf(const SurfaceHit& hit, const glm::vec3& w_o, const glm::vec3& w_i) const {
-    throw std::runtime_error(
-        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
-    );
+    return 0.f;
 }
 
 // ----------------------------------------------------------------------------------------------
 // Phong
 
 glm::vec3 SpecularPhong::f(const SurfaceHit& hit, const glm::vec3& w_o, const glm::vec3& w_i) const {
-    // TODO ASSIGNMENT2
-    // evaluate the (normalized!) phong BRDF for the given in- and outgoing (world-space) directions
-    // you may use hit.albedo() as the specular color here
+    if (!same_hemisphere(hit.N, w_i)) return glm::vec3(0);
     const float exponent = Material::exponent_from_roughness(hit.roughness());
-    const float index_of_refraction = hit.mat->ior;
-     if (glm::dot(hit.N, w_i) <= 0.f || glm::dot(hit.N, w_o) <= 0.f)
-        return glm::vec3(0.f);
-
-    // Half-vector for Blinn-Phong
-    const glm::vec3 h = glm::normalize(w_i + w_o);
-    const float NdotH = glm::max(0.f, glm::dot(hit.N, h));
-
-    // Normalized Phong: (n+1)/(2π) * (r·v)^n
-    const float normalization = (exponent + 1.f) / (2.f * float(M_PI));
-    const float spec = normalization * powf(NdotH, exponent);
-
-    // Scale by Fresnel term
-    const float F = fresnel_schlick(glm::dot(hit.N, w_o), index_of_refraction);
-    return hit.albedo() * F * spec;
-    
+    const float NdotH = fmaxf(0.f, dot(hit.N, normalize(w_o + w_i)));
+    const float norm_f = (exponent + 1) * INV2PI;
+    const float F = fresnel_dielectric(dot(hit.N, w_i), 1.f, hit.mat->ior);
+    return F * hit.albedo() * powf(NdotH, exponent) * norm_f;
 }
 
 std::tuple<glm::vec3, glm::vec3, float> SpecularPhong::sample(
@@ -174,97 +145,68 @@ float SpecularPhong::pdf(const SurfaceHit& hit, const glm::vec3& w_o, const glm:
 // Microfacet distribution helper functions
 
 inline float GGX_D(const float NdotH, float roughness) {
-    // TODO ASSIGNMENT2 (optional)
-    // compute the GGX D term here
-    if (NdotH <= 0.f) return 0.f;
-    const float alpha2 = roughness * roughness;
-    const float cos2 = NdotH * NdotH;
-    const float tan2 = (1.f - cos2) / cos2;           // tan²θ
-    const float denom = float(M_PI) * cos2 * cos2 * sqr(alpha2 + tan2);
-    return alpha2 / denom;
-    //return 0.f;
+    const float tan2 = tan2_theta(NdotH);
+    if (!std::isfinite(tan2)) return 0.f;
+    const float a2 = sqr(roughness);
+    assert(M_PI * sqr(sqr(NdotH)) * sqr(a2 + tan2) != 0.f);
+    return a2 / (M_PI * sqr(sqr(NdotH)) * sqr(a2 + tan2));
 }
 
 inline float GGX_G1(const float NdotV, float roughness) {
-    // TODO ASSIGNMENT2 (optional)
-    // compute the GGX G1 term here
-    if (NdotV <= 0.f) return 0.f;
-    const float alpha2 = roughness * roughness;
-    const float cos2 = NdotV * NdotV;
-    const float tan2 = (1.f - cos2) / cos2;
-    return 2.f / (1.f + sqrtf(1.f + alpha2 * tan2));
+    const float tan2 = tan2_theta(NdotV);
+    if (!std::isfinite(tan2)) return 0.f;
+    assert(1.f + sqrtf(1.f + sqr(roughness) * tan2) != 0.f);
+    return 2.f / (1.f + sqrtf(1.f + sqr(roughness) * tan2));
 }
 
 glm::vec3 GGX_sample(const glm::vec2& sample, float roughness) {
-    // TODO ASSIGNMENT2 (optional)
-    // implement sampling the GGX distribution here
-    // return a mircofacet normal in tangent space
-    return to_cartesian(glm::vec2(
-        std::atan((roughness * std::sqrt(sample.x)) / (std::sqrt(1 - sample.x)))
-        , 2 * PI * sample.y
-    ));
-
+    assert(sample.x != 0.f);
+    const float theta = atanf((roughness * sqrtf(sample.x)) / sqrtf(1.f - sample.x));
+    if (!std::isfinite(theta)) return glm::vec3(0, 0, 1);
+    const float phi = 2.f * M_PI * sample.y;
+    const float sin_t = sinf(theta);
+    return glm::vec3(sin_t * cosf(phi), sin_t * sinf(phi), cosf(theta));
 }
 
 inline float GGX_pdf(float D, float NdotH, float HdotV) {
-    // TODO ASSIGNMENT2 (optional)
-    // compute the microfacet PDF here
-    // from microfacet paper: Eq 14 jacobina = 1 / (4 * HdotV), Eq 24 p_m = D * NdotH, Eq 38 p_i = p_m * jacobina  
-    const auto pdf = /* std::abs */(D * NdotH) / /* std::abs */(4 * HdotV);
-    if(!std::isfinite(pdf) || pdf == 0.f){return 1.f;}
-    return pdf;
-
+    assert(4.f * abs(HdotV) != 0.f);
+    return (D * abs(NdotH)) / (4.f * abs(HdotV));
 }
-
 
 // ----------------------------------------------------------------------------------------------
 // Microfacet reflection
 
 glm::vec3 MicrofacetReflection::f(const SurfaceHit& hit, const glm::vec3& w_o, const glm::vec3& w_i) const {
-    // TODO ASSIGNMENT2
-    // evaluate the full microfacet BRDF here, optionally relying on the above functions for the D and G1 terms
-    // note: use schlick's approximation for the F term
-    const float alpha = hit.roughness();
-    const float NdotI = glm::dot(hit.N, w_i);
-    const float NdotO = glm::dot(hit.N, w_o);
-    if (NdotI <= 0.f || NdotO <= 0.f) return glm::vec3(0.f);
-
-    const glm::vec3 h = glm::normalize(w_i + w_o);   // half-vector
-    const float NdotH = glm::dot(hit.N, h);
-    const float HdotO = glm::dot(h, w_o);
-
-    const float D = GGX_D(NdotH, alpha);
-    const float G = GGX_G1(NdotI, alpha) * GGX_G1(NdotO, alpha);
-    const float F = fresnel_schlick(HdotO, hit.mat->ior); // F uses angle to half-vector
-
-    const float microfacet = D * G * F / (4.f * NdotI * NdotO);
+    const float NdotV = abs(dot(hit.N, w_o));
+    const float NdotL = abs(dot(hit.N, w_i));
+    if (NdotV == 0.f || NdotL == 0.f) return glm::vec3(0);
+    const glm::vec3 H = normalize(w_o + w_i);
+    const float roughness = hit.roughness();
+    const float F = fresnel_dielectric(dot(H, w_i), 1.f, hit.mat->ior);
+    const float D = GGX_D(abs(dot(hit.N, H)), roughness);
+    const float G = GGX_G1(NdotV, roughness) * GGX_G1(NdotL, roughness);
+    const float microfacet = (F * D * G) / (4 * NdotV * NdotL);
     return coated ? glm::vec3(microfacet) : hit.albedo() * microfacet;
 }
 
 std::tuple<glm::vec3, glm::vec3, float> MicrofacetReflection::sample(
     const SurfaceHit& hit, const glm::vec3& w_o, const glm::vec2& sample
 ) const {
-    // TODO ASSIGNMENT2
-    // importance sample and evaluate this microfacet BRDF
-    // set w_i to the sampled (world-space!) direction, pdf to the respective PDF and brdf to the evaluated BRDF
-    // from Paper: GGX BRDF
-    // Draw a tangent space micro normal from a random sample using Eq 35 & 36
-    const glm::vec3 m_tangent = GGX_sample(sample, hit.roughness());
-
-    
-    const float D_m = GGX_D(m_tangent.z, hit.roughness());
-    const glm::vec3 m_world = hit.to_world(m_tangent); // transform micro normal to world space
-    const glm::vec3 w_i = mirror(w_o, m_world);
-    const glm::vec3 brdf = MicrofacetReflection::f(hit, w_o, w_i);
-    const float pdf = GGX_pdf(D_m, glm::dot(m_world, hit.N), glm::dot(w_o, m_world));
-    return {brdf, w_i, pdf};
-
+    // reflect around sampled macro normal w_h
+    const glm::vec3 w_h = hit.to_world(GGX_sample(sample, hit.roughness()));
+    const glm::vec3 w_i = reflect(-w_o, w_h);
+    if (!same_hemisphere(hit.Ng, w_i)) return {glm::vec3(0), w_i, 0.f};
+    const float sample_pdf = pdf(hit, w_o, w_i);
+    assert(std::isfinite(sample_pdf));
+    return {f(hit, w_o, w_i), w_i, sample_pdf};
 }
 
 float MicrofacetReflection::pdf(const SurfaceHit& hit, const glm::vec3& w_o, const glm::vec3& w_i) const {
-    throw std::runtime_error(
-        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
-    );
+    const glm::vec3 H = normalize(w_o + w_i);
+    const float NdotH = dot(hit.N, H);
+    const float HdotV = dot(H, w_o);
+    const float D = GGX_D(NdotH, hit.roughness());
+    return GGX_pdf(D, NdotH, HdotV);
 }
 
 // ------------------------------------------------
@@ -329,7 +271,16 @@ float LayeredSurface::pdf(const SurfaceHit& hit, const glm::vec3& w_o, const glm
 // Metal
 
 glm::vec3 MetallicSurface::f(const SurfaceHit& hit, const glm::vec3& w_o, const glm::vec3& w_i) const {
-    throw std::runtime_error(
-        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
-    );
+    const float NdotV = dot(hit.N, w_o);
+    const float NdotL = dot(hit.N, w_i);
+    if (NdotV <= 0.f || NdotL <= 0.f) return glm::vec3(0);
+    const glm::vec3 H = normalize(w_o + w_i);
+    const float NdotH = dot(hit.N, H);
+    const float HdotL = dot(H, w_i);
+    const float roughness = hit.roughness();
+    const float F = fresnel_conductor(HdotL, hit.mat->ior, hit.mat->absorb);
+    const float D = GGX_D(NdotH, roughness);
+    const float G = GGX_G1(NdotV, roughness) * GGX_G1(NdotL, roughness);
+    const float microfacet = (F * D * G) / (4 * abs(NdotV) * abs(NdotL));
+    return hit.albedo() * microfacet;
 }

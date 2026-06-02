@@ -134,6 +134,8 @@ class Distribution2D {
 
   private:
     // data
+    // TODO ASSIGNMENT3
+    // add data structures for conditional and marginal distributions
 };
 
 // ----------------------------------------------------
