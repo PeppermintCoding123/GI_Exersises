@@ -18,7 +18,46 @@ Distribution1D::Distribution1D(const float* f, uint32_t N)
     // TODO ASSIGNMENT3
     // build a CDF from given discrete function values and ensure a density
     // Hint: take extra care regarding corner-cases!
-    f_integral = N;
+
+    // Normalize CDF
+    float sum_pdf = 0;
+    for (size_t i = 0; i < N; ++i) {
+        sum_pdf += func[i]; // sum of all discrete Probabilities
+        
+    }
+    // Q: is it correct to override, when the sum is 0?
+    if(sum_pdf == 0){ // if all values are zero, make it a uniform distribution
+        for(size_t i = 0; i< N; i++){
+            func[i] = 1.f / N;
+        }
+        sum_pdf = 1.f;
+    }
+    float inv_sum_pdf = 1.f / sum_pdf;
+
+    // build cdf
+    cdf[0] = 0;
+    for(size_t i = 0; i< N; i++){
+        cdf[i+1] = cdf[i] + inv_sum_pdf * func[i];
+        
+    }  
+
+    f_integral = sum_pdf;
+
+}
+
+int binary_search(float sample, const std::vector<float>& cdf) {
+    int low = 0;
+    int high = cdf.size() - 1;
+
+    while (low < high) {
+        int mid = low + (high - low) / 2;
+        if (cdf[mid] <= sample) {
+            low = mid + 1;
+        } else {
+            high = mid;
+        }
+    }
+    return low - 1; // Return the index of the largest value less than or equal to sample
 }
 
 Distribution1D::~Distribution1D() {}
@@ -45,6 +84,13 @@ std::tuple<float, float> Distribution1D::sample_01(float sample) const {
     // TODO ASSIGNMENT3
     // draw a sample in [0, 1) according to this distribution and the respective PDF
     // hint: a piecewise constant function is assumed, so you may linearly interpolate between function values
+    
+    // Q: how to test this one?
+    float x_value = binary_search(sample, cdf);
+    // linear interpolation
+    float interp_x = cdf[x_value] + (sample - cdf[x_value]) / (cdf[x_value + 1] - cdf[x_value]) * (1.f / size());
+    float p = func[interp_x];
+
     return {sample, 1.f / size()};
 }
 
@@ -52,7 +98,11 @@ std::tuple<uint32_t, float> Distribution1D::sample_index(float sample) const {
     // TODO ASSIGNMENT3
     // sample an index in [0, n) according to this distribution and the respective PDF
     // note: take care about proper normalization of the PDF!
-    return {sample * size(), 1.f / size()};
+
+    float x_value = binary_search(sample, cdf); 
+    float p = func[x_value] / integral(); // pdf at the discrete index
+    
+    return {x_value, p };
 }
 
 // ----------------------------------------------------
