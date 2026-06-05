@@ -6,6 +6,7 @@
 #include "texture.h"
 
 #include <iostream>
+// Q: how to fun function examples 1 & 2? & how to see graph distribution?
 
 // ----------------------------------------------------
 // Distribution1D
@@ -15,7 +16,7 @@ Distribution1D::Distribution1D()
 
 Distribution1D::Distribution1D(const float* f, uint32_t N)
     : func(f, f + N), cdf(N + 1) {
-    // TODO ASSIGNMENT3
+    // ASSIGNMENT3
     // build a CDF from given discrete function values and ensure a density
     // Hint: take extra care regarding corner-cases!
 
@@ -95,7 +96,7 @@ std::tuple<float, float> Distribution1D::sample_01(float sample) const {
 }
 
 std::tuple<uint32_t, float> Distribution1D::sample_index(float sample) const {
-    // TODO ASSIGNMENT3
+    // ASSIGNMENT3
     // sample an index in [0, n) according to this distribution and the respective PDF
     // note: take care about proper normalization of the PDF!
 
@@ -108,12 +109,36 @@ std::tuple<uint32_t, float> Distribution1D::sample_index(float sample) const {
 // ----------------------------------------------------
 // Distribution2D
 
+std::vector<Distribution1D> conditional; // one per row => h
+Distribution1D marginal; // marginal distribution along y
+
 Distribution2D::Distribution2D(const float* f, uint32_t w, uint32_t h) {
     // TODO ASSIGNMENT3
     // build conditional and marginal distributions from linearized array of function values
     // hint: use f[y * w + x] to get the value at (x, y)
     // hint: you may re-use the Distribution1D
     // hint: use plot_heatmap(*this, w, h) to plot this distribution for debugging or validation
+
+    float sum_y[h];
+    conditional.resize(h);
+
+    for(size_t y = 0; y < h; y++){
+        conditional[y] = Distribution1D(f + y*w, w);
+        sum_y[y] = 0;
+        for (size_t x = 0; x < w; x++){
+            sum_y[y] += f[y*w + x];
+        }
+    }
+    marginal = Distribution1D(sum_y, h); 
+
+    /*float inv_sum_pdf = 0;
+    if(marginal.integral()  == 0){ // if all values are zero, make it a uniform distribution
+        // TODO: Edge case?
+        inv_sum_pdf = 1.f;
+    }else{
+        inv_sum_pdf = 1.f / marginal.integral() ;
+    }*/
+
 }
 
 Distribution2D::~Distribution2D() {}
@@ -121,25 +146,25 @@ Distribution2D::~Distribution2D() {}
 double Distribution2D::integral() const {
     // TODO ASSIGNMENT3
     // return the integral here
-    return 1.f;
+    return marginal.integral();
 }
 
 double Distribution2D::unit_integral() const {
     // TODO ASSIGNMENT3
     // return the unit integral here
-    return 1.f;
+    return marginal.integral() / marginal.size();
 }
 
 std::tuple<glm::vec2, float> Distribution2D::sample_01(const glm::vec2& sample) const {
     // TODO ASSIGNMENT3
     // draw a two-dimensional sample in [0, 1) from this distribution and compute its PDF
+
     return {sample, 1.f};
 }
 
 float Distribution2D::pdf(const glm::vec2& sample) const {
-    throw std::runtime_error(
-        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
-    );
+    // Q: also do something here?
+    return 1.f;
 }
 
 // ----------------------------------------------------

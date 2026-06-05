@@ -85,8 +85,10 @@ void SkyLight::build_distribution() {
     Buffer<float> importance(texture->w, texture->h);
     for (size_t y = 0; y < texture->h; ++y) {
         // TODO ASSIGNMENT3 counteract distortion from spherical mapping
-        for (size_t x = 0; x < texture->w; ++x)
-            importance(x, y) = luma(texture->operator()(x, y));
+        for (size_t x = 0; x < texture->w; ++x) {
+            float weight = sinf((y + 0.5f) / texture->h * PI); // weight for spherical mapping
+            importance(x, y) = luma(texture->operator()(x, y)) * weight;
+        }
     }
     distribution = std::make_shared<Distribution2D>(importance.data(), importance.width(), importance.height());
     plot_heatmap(*distribution, importance.width(), importance.height());
