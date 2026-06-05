@@ -85,13 +85,13 @@ std::tuple<float, float> Distribution1D::sample_01(float sample) const {
     // draw a sample in [0, 1) according to this distribution and the respective PDF
     // hint: a piecewise constant function is assumed, so you may linearly interpolate between function values
     
-    // Q: how to test this one?
+    // Q: how to test this function?
     float x_value = binary_search(sample, cdf);
     // linear interpolation
     float interp_x = cdf[x_value] + (sample - cdf[x_value]) / (cdf[x_value + 1] - cdf[x_value]) * (1.f / size());
-    float p = func[interp_x];
+    float p = func[interp_x]/ size();
 
-    return {sample, 1.f / size()};
+    return {func[interp_x], p};
 }
 
 std::tuple<uint32_t, float> Distribution1D::sample_index(float sample) const {
