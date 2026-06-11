@@ -4,9 +4,8 @@
 #include "color.h"
 #include "random.h"
 #include "texture.h"
-
+#include <algorithm>
 #include <iostream>
-// Q: how to fun function examples 1 & 2? & how to see graph distribution?
 
 // ----------------------------------------------------
 // Distribution1D
@@ -16,49 +15,31 @@ Distribution1D::Distribution1D()
 
 Distribution1D::Distribution1D(const float* f, uint32_t N)
     : func(f, f + N), cdf(N + 1) {
-    // ASSIGNMENT3
+    // TODO ASSIGNMENT3
     // build a CDF from given discrete function values and ensure a density
     // Hint: take extra care regarding corner-cases!
+    //f_integral = N;
+    cdf[0] = 0.0f;
 
-    // Normalize CDF
-    float sum_pdf = 0;
-    for (size_t i = 0; i < N; ++i) {
-        sum_pdf += func[i]; // sum of all discrete Probabilities
-        
-    }
-    // Q: is it correct to override, when the sum is 0?
-    if(sum_pdf == 0){ // if all values are zero, make it a uniform distribution
-        for(size_t i = 0; i< N; i++){
-            func[i] = 1.f / N;
-        }
-        sum_pdf = 1.f;
-    }
-    float inv_sum_pdf = 1.f / sum_pdf;
-
-    // build cdf
-    cdf[0] = 0;
-    for(size_t i = 0; i< N; i++){
-        cdf[i+1] = cdf[i] + inv_sum_pdf * func[i];
-        
-    }  
-
-    f_integral = sum_pdf;
-
+for(uint32_t i = 0; i < N; i++)
+{
+    cdf[i + 1] = cdf[i] + func[i];
 }
 
-int binary_search(float sample, const std::vector<float>& cdf) {
-    int low = 0;
-    int high = cdf.size() - 1;
+f_integral = cdf[N];
 
-    while (low < high) {
-        int mid = low + (high - low) / 2;
-        if (cdf[mid] <= sample) {
-            low = mid + 1;
-        } else {
-            high = mid;
-        }
-    }
-    return low - 1; // Return the index of the largest value less than or equal to sample
+if(f_integral > 0.0)
+{
+    for(uint32_t i = 1; i <= N; i++)
+        cdf[i] /= f_integral;
+}
+else
+{
+    for(uint32_t i = 1; i <= N; i++)
+        cdf[i] = float(i) / float(N);
+
+    f_integral = N;
+}
 }
 
 Distribution1D::~Distribution1D() {}
@@ -85,61 +66,65 @@ std::tuple<float, float> Distribution1D::sample_01(float sample) const {
     // TODO ASSIGNMENT3
     // draw a sample in [0, 1) according to this distribution and the respective PDF
     // hint: a piecewise constant function is assumed, so you may linearly interpolate between function values
-    
-    // Q: how to test this function?
-    float x_value = binary_search(sample, cdf);
-    // linear interpolation
-    float interp_x = cdf[x_value] + (sample - cdf[x_value]) / (cdf[x_value + 1] - cdf[x_value]) * (1.f / size());
-    float p = func[interp_x]/ unit_integral(); // pdf at the interpolated index
+    auto it = std::upper_bound(cdf.begin(), cdf.end(), sample);
 
-    return {func[interp_x], p};
+uint32_t idx =
+    std::max(0, int(it - cdf.begin()) - 1);
+
+idx = std::min(idx, size() - 1);
+
+float du = sample - cdf[idx];
+float interval = cdf[idx + 1] - cdf[idx];
+
+float offset = 0.0f;
+
+if(interval > 0.0f)
+    offset = du / interval;
+
+float x = (idx + offset) / float(size());
+
+return {x, pdf(x)};
+  
 }
 
 std::tuple<uint32_t, float> Distribution1D::sample_index(float sample) const {
-    // ASSIGNMENT3
+    // TODO ASSIGNMENT3
     // sample an index in [0, n) according to this distribution and the respective PDF
     // note: take care about proper normalization of the PDF!
+    auto it = std::upper_bound(cdf.begin(), cdf.end(), sample);
 
-    float x_value = binary_search(sample, cdf); 
-    float p = func[x_value] / integral(); // pdf at the discrete index
-    
-    return {x_value, p };
+uint32_t idx =
+    std::max(0, int(it - cdf.begin()) - 1);
+
+idx = std::min(idx, size() - 1);
+
+return {idx, pdf(size_t(idx))};
+    //return {sample * size(), 1.f / size()};
 }
 
 // ----------------------------------------------------
 // Distribution2D
 
-std::vector<Distribution1D> conditional; // one per row => h
-Distribution1D marginal; // marginal distribution along y
 
-Distribution2D::Distribution2D(const float* f, uint32_t w, uint32_t h) {
     // TODO ASSIGNMENT3
     // build conditional and marginal distributions from linearized array of function values
     // hint: use f[y * w + x] to get the value at (x, y)
     // hint: you may re-use the Distribution1D
+    // hint: use plot_heatmap(*this, w, h) to plot this distribution for debugging or validation
+Distribution2D::Distribution2D(const float* f, uint32_t w, uint32_t h)
+    : width(w), height(h), f_integral(0.0) {
 
-    float sum_y[h];
-    conditional.resize(h);
+    conditional.reserve(h);
 
-    for(size_t y = 0; y < h; y++){
-        conditional[y] = Distribution1D(f + y*w, w);
-        sum_y[y] = 0;
-        for (size_t x = 0; x < w; x++){
-            sum_y[y] += f[y*w + x];
-        }
+    std::vector<float> marginal_func(h);
+
+    for(uint32_t y = 0; y < h; y++) {
+        conditional.emplace_back(&f[y * w], w);
+        marginal_func[y] = float(conditional[y].integral());
     }
-    marginal = Distribution1D(sum_y, h); 
 
-    plot_heatmap(*this, w, h);
-
-    /*float inv_sum_pdf = 0;
-    if(marginal.integral()  == 0){ // if all values are zero, make it a uniform distribution
-        // TODO: Edge case?
-        inv_sum_pdf = 1.f;
-    }else{
-        inv_sum_pdf = 1.f / marginal.integral() ;
-    }*/
-
+    marginal = Distribution1D(marginal_func.data(), h);
+    f_integral = marginal.integral();
 }
 
 Distribution2D::~Distribution2D() {}
@@ -147,41 +132,34 @@ Distribution2D::~Distribution2D() {}
 double Distribution2D::integral() const {
     // TODO ASSIGNMENT3
     // return the integral here
-    return marginal.integral();
+    return f_integral;
 }
 
 double Distribution2D::unit_integral() const {
     // TODO ASSIGNMENT3
     // return the unit integral here
-    return marginal.integral() / marginal.size();
+    return f_integral / double(width * height);
 }
 
 std::tuple<glm::vec2, float> Distribution2D::sample_01(const glm::vec2& sample) const {
     // TODO ASSIGNMENT3
     // draw a two-dimensional sample in [0, 1) from this distribution and compute its PDF
-    // hint: first sample a row according to the marginal distribution, then sample a column according to the respective conditional distribution
-    auto [y_index, p_y] = marginal.sample_index(sample.y);
-    auto [x_index, p_x] = conditional[y_index].sample_index(sample.x);
-    
-    float p = (p_y * p_x) / integral(); // joint pdf = p(y) * p(x|y) / integral of the whole distribution
+    auto [v, pdf_y] = marginal.sample_01(sample.y);
 
-    glm::vec2 sample_vec(x_index / float(conditional[y_index].size()), y_index / float(marginal.size()));
-    
-    return {sample_vec, p};
+    uint32_t y = std::min(uint32_t(v * height), height - 1);
 
-    //return {sample, 1.f};
-    /*
-    float x_value = binary_search(sample, cdf);
-    // linear interpolation
-    float interp_x = cdf[x_value] + (sample - cdf[x_value]) / (cdf[x_value + 1] - cdf[x_value]) * (1.f / size());
-    float p = func[interp_x]/ size();
+    auto [u, pdf_x] = conditional[y].sample_01(sample.x);
 
-    return {func[interp_x], p};*/
+    float pdf = pdf_x * pdf_y;
+
+    return {glm::vec2(u, v), pdf};
 }
 
 float Distribution2D::pdf(const glm::vec2& sample) const {
-    // Q: also do something here?
-    return 1.f;
+    throw std::runtime_error(
+        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
+    );
+   
 }
 
 // ----------------------------------------------------

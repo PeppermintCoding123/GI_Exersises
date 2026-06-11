@@ -133,6 +133,10 @@ class Distribution2D {
     float pdf(const glm::vec2& sample) const;
 
   private:
+  std::vector<Distribution1D> conditional;
+Distribution1D marginal;
+uint32_t width, height;
+double f_integral;
     // data
     // TODO ASSIGNMENT3
     // add data structures for conditional and marginal distributions
