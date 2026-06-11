@@ -90,7 +90,7 @@ std::tuple<float, float> Distribution1D::sample_01(float sample) const {
     float x_value = binary_search(sample, cdf);
     // linear interpolation
     float interp_x = cdf[x_value] + (sample - cdf[x_value]) / (cdf[x_value + 1] - cdf[x_value]) * (1.f / size());
-    float p = func[interp_x]/ size();
+    float p = func[interp_x]/ unit_integral(); // pdf at the interpolated index
 
     return {func[interp_x], p};
 }
@@ -117,7 +117,6 @@ Distribution2D::Distribution2D(const float* f, uint32_t w, uint32_t h) {
     // build conditional and marginal distributions from linearized array of function values
     // hint: use f[y * w + x] to get the value at (x, y)
     // hint: you may re-use the Distribution1D
-    // hint: use plot_heatmap(*this, w, h) to plot this distribution for debugging or validation
 
     float sum_y[h];
     conditional.resize(h);
@@ -130,6 +129,8 @@ Distribution2D::Distribution2D(const float* f, uint32_t w, uint32_t h) {
         }
     }
     marginal = Distribution1D(sum_y, h); 
+
+    plot_heatmap(*this, w, h);
 
     /*float inv_sum_pdf = 0;
     if(marginal.integral()  == 0){ // if all values are zero, make it a uniform distribution
@@ -158,8 +159,24 @@ double Distribution2D::unit_integral() const {
 std::tuple<glm::vec2, float> Distribution2D::sample_01(const glm::vec2& sample) const {
     // TODO ASSIGNMENT3
     // draw a two-dimensional sample in [0, 1) from this distribution and compute its PDF
+    // hint: first sample a row according to the marginal distribution, then sample a column according to the respective conditional distribution
+    auto [y_index, p_y] = marginal.sample_index(sample.y);
+    auto [x_index, p_x] = conditional[y_index].sample_index(sample.x);
+    
+    float p = (p_y * p_x) / integral(); // joint pdf = p(y) * p(x|y) / integral of the whole distribution
 
-    return {sample, 1.f};
+    glm::vec2 sample_vec(x_index / float(conditional[y_index].size()), y_index / float(marginal.size()));
+    
+    return {sample_vec, p};
+
+    //return {sample, 1.f};
+    /*
+    float x_value = binary_search(sample, cdf);
+    // linear interpolation
+    float interp_x = cdf[x_value] + (sample - cdf[x_value]) / (cdf[x_value + 1] - cdf[x_value]) * (1.f / size());
+    float p = func[interp_x]/ size();
+
+    return {func[interp_x], p};*/
 }
 
 float Distribution2D::pdf(const glm::vec2& sample) const {
