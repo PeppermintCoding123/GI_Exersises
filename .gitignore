@@ -1,3 +1,7 @@
 *.png
 *.o
 gi
+build/.ninja_deps
+/build
+*.o
+gi
