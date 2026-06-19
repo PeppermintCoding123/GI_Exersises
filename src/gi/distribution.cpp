@@ -21,24 +21,25 @@ Distribution1D::Distribution1D(const float* f, uint32_t N)
     //f_integral = N;
     cdf[0] = 0.0f;
 
-for(uint32_t i = 0; i < N; i++)
-{
-    cdf[i + 1] = cdf[i] + func[i];
-}
+    for(uint32_t i = 0; i < N; i++)
+    {
+        cdf[i + 1] = cdf[i] + func[i];
+    }
 
-f_integral = cdf[N];
+    f_integral = cdf[N];
 
-if(f_integral > 0.0)
-{
-    for(uint32_t i = 1; i <= N; i++)
-        cdf[i] /= f_integral;
-}
-else
-{
-    for(uint32_t i = 1; i <= N; i++)
-        cdf[i] = float(i) / float(N);
-
-}
+    if(f_integral > 0.0)
+    {
+        for(uint32_t i = 1; i <= N; i++)
+            cdf[i] /= f_integral;
+    }
+    else
+    {
+        for(uint32_t i = 1; i <= N; i++)
+            cdf[i] = float(i) / float(N);
+        // set to non-zero
+    
+    }
 }
 
 Distribution1D::~Distribution1D() {}
@@ -68,17 +69,17 @@ std::tuple<float, float> Distribution1D::sample_01(float sample) const {
     auto it = std::upper_bound(cdf.begin(), cdf.end(), sample); // looking for the first element in the CDF that is greater than the sample
 
     uint32_t idx =
-        std::max(0, int(it - cdf.begin()) - 1);
+        std::max(0, int(it - cdf.begin()) - 1); 
 
     idx = std::min(idx, size() - 1);
 
-    float du = sample - cdf[idx];
+    float du = sample - cdf[idx]; // diffarence current & expected
     float interval = cdf[idx + 1] - cdf[idx];
 
     float offset = 0.0f;
 
     if(interval > 0.0f)
-        offset = du / interval;
+        offset = du / interval; // howm far from index
 
     float x = (idx + offset) / float(size());
 
@@ -92,12 +93,12 @@ std::tuple<uint32_t, float> Distribution1D::sample_index(float sample) const {
     // note: take care about proper normalization of the PDF!
     auto it = std::upper_bound(cdf.begin(), cdf.end(), sample);
 
-    uint32_t idx =
-        std::max(0, int(it - cdf.begin()) - 1);
+uint32_t idx =
+    std::max(0, int(it - cdf.begin()) - 1);
 
-    idx = std::min(idx, size() - 1);
+idx = std::min(idx, size() - 1);
 
-    return {idx, pdf(size_t(idx))};
+return {idx, pdf(size_t(idx))};
     //return {sample * size(), 1.f / size()};
 }
 
@@ -113,23 +114,17 @@ std::tuple<uint32_t, float> Distribution1D::sample_index(float sample) const {
 Distribution2D::Distribution2D(const float* f, uint32_t w, uint32_t h)
     : width(w), height(h), f_integral(0.0) {
 
-        float sum_all = 0.0f;
-        for (uint32_t i = 0; i < w * h; i++) {
-            sum_all += f[i];
-        }
-        std::cout << "Sum of all function values: " << sum_all << std::endl;
     conditional.reserve(h);
 
     std::vector<float> marginal_func(h);
 
     for(uint32_t y = 0; y < h; y++) {
         conditional.emplace_back(&f[y * w], w);
-        marginal_func[y] = float(conditional[y].integral()); // save all the sums
+        marginal_func[y] = float(conditional[y].integral());  // save all the sums
     }
 
     marginal = Distribution1D(marginal_func.data(), h); // build marginal with the sums
     f_integral = marginal.integral();
-    std::cout << "Integral of marginal distribution: " << f_integral << std::endl;
 }
 
 Distribution2D::~Distribution2D() {}
@@ -161,7 +156,10 @@ std::tuple<glm::vec2, float> Distribution2D::sample_01(const glm::vec2& sample) 
 }
 
 float Distribution2D::pdf(const glm::vec2& sample) const {
-    return 1.f;
+    throw std::runtime_error(
+        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
+    );
+   
 }
 
 // ----------------------------------------------------
