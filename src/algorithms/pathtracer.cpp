@@ -15,9 +15,16 @@ struct Pathtracer : public Algorithm {
     inline static const std::string name = "Pathtracer";
 
     void sample_pixel(Context& context, uint32_t x, uint32_t y, uint32_t samples) {
-        throw std::runtime_error(
-            "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
-        );
+        for (uint32_t i = 0; i < samples; ++i) {
+            vec3 L(0);
+
+            // TODO ASSIGNMENT4
+            // - implement a pathtracer using next event estimation
+            // - add russian roulette
+            // - (optional, bonus) add multiple importance sampling
+
+            context.fbo.add_sample(x, y, L);
+        }
     }
 };
 

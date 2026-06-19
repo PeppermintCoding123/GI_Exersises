@@ -4,7 +4,7 @@
 #include "color.h"
 #include "random.h"
 #include "texture.h"
-#include <algorithm>
+
 #include <iostream>
 
 // ----------------------------------------------------
@@ -15,31 +15,15 @@ Distribution1D::Distribution1D()
 
 Distribution1D::Distribution1D(const float* f, uint32_t N)
     : func(f, f + N), cdf(N + 1) {
-    // TODO ASSIGNMENT3
-    // build a CDF from given discrete function values and ensure a density
-    // Hint: take extra care regarding corner-cases!
-    //f_integral = N;
-    cdf[0] = 0.0f;
-
-    for(uint32_t i = 0; i < N; i++)
-    {
-        cdf[i + 1] = cdf[i] + func[i];
-    }
-
+    // build non-normalized cdf in [0, N)
+    cdf[0] = 0;
+    for (uint32_t i = 1; i < N + 1; ++i)
+        cdf[i] = cdf[i - 1] + func[i - 1];
     f_integral = cdf[N];
-
-    if(f_integral > 0.0)
-    {
-        for(uint32_t i = 1; i <= N; i++)
-            cdf[i] /= f_integral;
-    }
-    else
-    {
-        for(uint32_t i = 1; i <= N; i++)
-            cdf[i] = float(i) / float(N);
-        // set to non-zero
-    
-    }
+    // convert to (discrete) density
+    for (uint32_t i = 1; i < N + 1; ++i)
+        cdf[i] = f_integral != 0.f ? cdf[i] / f_integral : float(i) / float(N);
+    assert(cdf[N] == 1);
 }
 
 Distribution1D::~Distribution1D() {}
@@ -63,103 +47,66 @@ float Distribution1D::pdf(size_t index) const {
 }
 
 std::tuple<float, float> Distribution1D::sample_01(float sample) const {
-    // TODO ASSIGNMENT3
-    // draw a sample in [0, 1) according to this distribution and the respective PDF
-    // hint: a piecewise constant function is assumed, so you may linearly interpolate between function values
-    auto it = std::upper_bound(cdf.begin(), cdf.end(), sample); // looking for the first element in the CDF that is greater than the sample
-
-    uint32_t idx =
-        std::max(0, int(it - cdf.begin()) - 1); 
-
-    idx = std::min(idx, size() - 1);
-
-    float du = sample - cdf[idx]; // diffarence current & expected
-    float interval = cdf[idx + 1] - cdf[idx];
-
-    float offset = 0.0f;
-
-    if(interval > 0.0f)
-        offset = du / interval; // howm far from index
-
-    float x = (idx + offset) / float(size());
-
-    return {x, pdf(x)};
-  
+    assert(sample >= 0 && sample < 1);
+    const uint32_t offset = glm::max(0, int(std::lower_bound(cdf.begin(), cdf.end(), sample) - cdf.begin()) - 1);
+    assert(offset <= size());
+    assert(sample <= cdf[offset + 1]);
+    float du = sample - cdf[offset];
+    if ((cdf[offset + 1] - cdf[offset]) > 0) du /= (cdf[offset + 1] - cdf[offset]);
+    const float pdf = f_integral > 0 ? func[offset] / unit_integral() : 0.f;
+    assert(std::isfinite(pdf));
+    return {(offset + du) / float(func.size()), pdf};
 }
 
 std::tuple<uint32_t, float> Distribution1D::sample_index(float sample) const {
-    // TODO ASSIGNMENT3
-    // sample an index in [0, n) according to this distribution and the respective PDF
-    // note: take care about proper normalization of the PDF!
-    auto it = std::upper_bound(cdf.begin(), cdf.end(), sample);
-
-uint32_t idx =
-    std::max(0, int(it - cdf.begin()) - 1);
-
-idx = std::min(idx, size() - 1);
-
-return {idx, pdf(size_t(idx))};
-    //return {sample * size(), 1.f / size()};
+    assert(sample >= 0 && sample < 1);
+    const uint32_t offset = glm::max(0, int(std::lower_bound(cdf.begin(), cdf.end(), sample) - cdf.begin()) - 1);
+    assert(offset <= size());
+    assert(sample <= cdf[offset + 1]);
+    const float pdf = f_integral > 0 ? func[offset] / integral() : 0.f;
+    assert(std::isfinite(pdf));
+    return {offset, pdf};
 }
 
 // ----------------------------------------------------
 // Distribution2D
 
-
-    // TODO ASSIGNMENT3
-    // build conditional and marginal distributions from linearized array of function values
-    // hint: use f[y * w + x] to get the value at (x, y)
-    // hint: you may re-use the Distribution1D
-    // hint: use plot_heatmap(*this, w, h) to plot this distribution for debugging or validation
-Distribution2D::Distribution2D(const float* f, uint32_t w, uint32_t h)
-    : width(w), height(h), f_integral(0.0) {
-
-    conditional.reserve(h);
-
-    std::vector<float> marginal_func(h);
-
-    for(uint32_t y = 0; y < h; y++) {
-        conditional.emplace_back(&f[y * w], w);
-        marginal_func[y] = float(conditional[y].integral());  // save all the sums
-    }
-
-    marginal = Distribution1D(marginal_func.data(), h); // build marginal with the sums
-    f_integral = marginal.integral();
+Distribution2D::Distribution2D(const float* f, uint32_t w, uint32_t h) {
+    for (uint32_t y = 0; y < h; ++y)
+        conditional.push_back(Distribution1D(&f[y * w], w));
+    std::vector<float> marginal_func;
+    marginal_func.reserve(h);
+    for (uint32_t y = 0; y < h; ++y)
+        marginal_func.push_back(conditional[y].integral());
+    marginal = Distribution1D(marginal_func.data(), h);
 }
 
 Distribution2D::~Distribution2D() {}
 
 double Distribution2D::integral() const {
-    // TODO ASSIGNMENT3
-    // return the integral here
-    return f_integral;
+    return marginal.integral();
 }
 
 double Distribution2D::unit_integral() const {
-    // TODO ASSIGNMENT3
-    // return the unit integral here
-    return f_integral / double(width * height);
+    return marginal.integral() / (marginal.size() * conditional[0].size());
 }
 
 std::tuple<glm::vec2, float> Distribution2D::sample_01(const glm::vec2& sample) const {
-    // TODO ASSIGNMENT3
-    // draw a two-dimensional sample in [0, 1) from this distribution and compute its PDF
-    auto [v, pdf_y] = marginal.sample_01(sample.y);
-
-    uint32_t y = std::min(uint32_t(v * height), height - 1); // if v == 1, we would get y == height, which is out of bounds. So we clamp it to height - 1.
-
-    auto [u, pdf_x] = conditional[y].sample_01(sample.x);
-
-    float pdf = pdf_x * pdf_y;
-
-    return {glm::vec2(u, v), pdf};
+    assert(sample.x >= 0 && sample.x < 1);
+    assert(sample.y >= 0 && sample.y < 1);
+    const auto [y, pdf_y] = marginal.sample_01(sample.y);
+    const auto [x, pdf_x] = conditional[uint32_t(y * marginal.size())].sample_01(sample.x);
+    const float pdf = pdf_y * pdf_x;
+    assert(std::isfinite(pdf));
+    return {glm::vec2(x, y), pdf};
 }
 
 float Distribution2D::pdf(const glm::vec2& sample) const {
-    throw std::runtime_error(
-        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
-    );
-   
+    assert(sample.x >= 0 && sample.x < 1);
+    assert(sample.y >= 0 && sample.y < 1);
+    const int x = glm::clamp(int(sample.x * conditional[0].size()), 0, int(conditional[0].size()) - 1);
+    const int y = glm::clamp(int(sample.y * marginal.size()), 0, int(marginal.size()) - 1);
+    return conditional[y].f(x) / marginal.integral();
 }
 
 // ----------------------------------------------------

@@ -1,9 +1,7 @@
 #include "context.h"
 
-#include "gi/distribution.h"
 
 int main(int argc, char** argv) {
-    debug_distributions();
 
     // init context
     Context context;

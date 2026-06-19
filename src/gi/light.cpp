@@ -35,9 +35,10 @@ std::tuple<glm::vec3, Ray, float> AreaLight::sample_Li(const glm::vec3& position
 }
 
 float AreaLight::pdf_Li(const SurfaceHit& light, const Ray& ray) const {
-    throw std::runtime_error(
-        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
-    );
+    assert(light.valid && light.mesh && light.area > 0);
+    // TODO ASSIGNMENT4 MIS: compute the PDF (solid angle) of the given light source sample from given ray
+    // note: the distance is given via ray.tfar
+    return 0.f;
 }
 
 std::tuple<glm::vec3, Ray, glm::vec3, float, float> AreaLight::sample_Le(
@@ -84,15 +85,13 @@ void SkyLight::build_distribution() {
     // init distribution for importance sampling
     Buffer<float> importance(texture->w, texture->h);
     for (size_t y = 0; y < texture->h; ++y) {
-        // TODO ASSIGNMENT3 counteract distortion from spherical mapping
-        float weight = sinf((y + 0.5f) / texture->h * PI); // weight for spherical mapping
+        // counteract distortion
+        float sin_theta = sinf(PI * float(y + .5f) / float(texture->h));
         for (size_t x = 0; x < texture->w; ++x)
-            
-            importance(x, y) = luma(texture->operator()(x, y))* weight;
-        
+            importance(x, y) =
+                luma(texture->operator()(static_cast<uint64_t>(x), static_cast<uint64_t>(y))) * sin_theta;
     }
     distribution = std::make_shared<Distribution2D>(importance.data(), importance.width(), importance.height());
-    plot_heatmap(*distribution, importance.width(), importance.height());
 }
 
 std::tuple<glm::vec3, Ray, float> SkyLight::sample_Li(const glm::vec3& position, const glm::vec2& sample) const {
@@ -115,9 +114,11 @@ std::tuple<glm::vec3, Ray, float> SkyLight::sample_Li(const glm::vec3& position,
 }
 
 float SkyLight::pdf_Li(const SurfaceHit& light, const Ray& ray) const {
-    throw std::runtime_error(
-        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
-    );
+    // TODO ASSIGNMENT4: compute the PDF (solid angle) of the escaped ray for MIS
+    // Hint: you may use Distribution2D::pdf
+    const glm::vec2 theta_phi = to_spherical(ray.dir);
+    const float sin_t = sinf(theta_phi.x);
+    return 0.f;
 }
 
 glm::vec3 SkyLight::Le(const Ray& ray) const {
