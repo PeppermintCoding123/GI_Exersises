@@ -31,6 +31,15 @@ struct Pathtracer : public Algorithm {
             vec3 L = vec3(0.f);
 
             for (int depth = 0; depth < context.MAX_CAM_PATH_LENGTH; ++depth) {
+                // russian roulett
+                if (throughput[0] < context.RR_THRESHOLD || throughput[1] < context.RR_THRESHOLD || throughput[2] < context.RR_THRESHOLD){
+                    float p = 0.5;
+                    if(RNG::uniform<float>() < p){
+                        throughput = vec3(0.f);
+                    }
+                    float throughput = (throughput - p) / (1-p);
+                }
+                
                 SurfaceHit hit = context.scene.intersect(ray);
 
                 // Hit a light source
@@ -57,6 +66,7 @@ struct Pathtracer : public Algorithm {
                         L += Li * throughput * hit.f(-ray.dir, shadow_ray.dir) * fmaxf(0.f, dot(hit.N, shadow_ray.dir)) / pdf_L;
                     }
 
+                    // contiue as in native
                     const auto [brdf, w_i, pdf] = hit.sample(-ray.dir, RNG::uniform<vec2>());
                     if (pdf <= 0.f) break;
 
