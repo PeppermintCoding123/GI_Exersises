@@ -39,12 +39,14 @@ struct NaivePathtracer : public Algorithm {
 
         for (int depth = 0; depth < context.MAX_CAM_PATH_LENGTH; ++depth) {
             // russian roulett
-            if (throughput[0] < context.RR_THRESHOLD || throughput[1] < context.RR_THRESHOLD || throughput[2] < context.RR_THRESHOLD){
+            if (throughput[0] < context.RR_THRESHOLD && throughput[1] < context.RR_THRESHOLD && throughput[2] < context.RR_THRESHOLD){
                 float p = 0.5;
                 if(RNG::uniform<float>() < p){
                     throughput = vec3(0.f);
+                    break;
                 }
-                float throughput = (throughput - p) / (1-p);
+                vec3 throughput = (throughput - vec3(p)) / (1-p);
+
             }
 
             SurfaceHit hit = context.scene.intersect(ray);

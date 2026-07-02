@@ -30,33 +30,42 @@ struct Pathtracer : public Algorithm {
             vec3 throughput = vec3(1.f);
             vec3 L = vec3(0.f);
 
+            SurfaceHit hit = context.scene.intersect(ray);
+
+            // Hit a light source - Hier das licht nicht abtesten, sondern nur wenn beim ersten cast.
+            if (hit.is_light() && hit.valid) {
+                // use AreaLight
+                vec3 Le = hit.valid ? hit.Le() : context.scene.Le(ray);
+                L += throughput * Le;
+                context.fbo.add_sample(x, y, L);
+                break;
+            }
+            if (hit.is_light() && !hit.valid) {
+                // use SkyLight
+                vec3 Le = context.scene.Le(ray); // environment/ambient
+                L += throughput * Le;
+                context.fbo.add_sample(x, y, L);
+                break;
+            }
+            
+
             for (int depth = 0; depth < context.MAX_CAM_PATH_LENGTH; ++depth) {
                 // russian roulett
-                if (throughput[0] < context.RR_THRESHOLD || throughput[1] < context.RR_THRESHOLD || throughput[2] < context.RR_THRESHOLD){
+                if (throughput[0] < context.RR_THRESHOLD && throughput[1] < context.RR_THRESHOLD && throughput[2] < context.RR_THRESHOLD){
                     float p = 0.5;
                     if(RNG::uniform<float>() < p){
                         throughput = vec3(0.f);
+                        break;
                     }
-                    float throughput = (throughput - p) / (1-p);
+                    vec3 throughput = (throughput - vec3(p)) / (1-p);
+
                 }
                 
                 SurfaceHit hit = context.scene.intersect(ray);
 
-                // Hit a light source
-                if (hit.is_light() && hit.valid) {
-                    // use AreaLight
-                    vec3 Le = hit.valid ? hit.Le() : context.scene.Le(ray);
-                    L += throughput * Le;
-                    break;
-                }
-                if (hit.is_light() && !hit.valid) {
-                    // use SkyLight
-                    vec3 Le = context.scene.Le(ray); // environment/ambient
-                    L += throughput * Le;
-                    break;
-                }
+                
                 if (hit.valid){
-                    // TODO: sample Light
+                    // TODO: sample Light - next event estimation
                     const auto [light, pdf_light_source] = context.scene.sample_light_source(RNG::uniform<float>());
                     auto [Li, shadow_ray, pdf_light_sample] = light->sample_Li(hit.P, RNG::uniform<vec2>());
                     const float pdf_L = pdf_light_source * pdf_light_sample;
