@@ -152,27 +152,66 @@ std::tuple<bool, float, float> Volume::intersect(const Ray& ray) const {
 }
 
 float Volume::transmittance_raymarching(const Ray& ray) const {
-    throw std::runtime_error(
-        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
-    );
+    // clip ray against volume AABB
+    const auto [hit, near, far] = intersect(ray);
+    if (!hit) return 1.f;
+    // transform ray to index-space
+    const glm::vec3 ipos = world_to_index(glm::vec4(ray.org, 1.f));
+    const glm::vec3 idir = world_to_index(glm::vec4(ray.dir, 0.f)); // non-normalized!
+
+    // TODO: ASSIGNMENT5: implement transmittance estimation using ray marching in the ray segment [near, far]
+    // Hint: see the class members raymarch_dt, absorption_cross_section and scattering_cross_section
+    // Hint: use NVDBGrid::lookup_density*() to fetch density values from the index-space grid
+    // Hint: randomly offset the start position using RNG::uniform<float>() to avoid banding artifacts
+
+    return 1.f;
 }
 
 float Volume::transmittance_ratio_tracking(const Ray& ray) const {
-    throw std::runtime_error(
-        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
-    );
+    // clip ray against volume AABB
+    const auto [hit, near, far] = intersect(ray);
+    if (!hit) return 1.f;
+    // transform ray to index-space
+    const glm::vec3 ipos = world_to_index(glm::vec4(ray.org, 1.f));
+    const glm::vec3 idir = world_to_index(glm::vec4(ray.dir, 0.f)); // non-normalized!
+
+    // TODO: ASSIGNMENT5: implement transmittance estimation using ratio tracking in the ray segment [near, far]
+    // Hint: see the class members absorption_cross_section and scattering_cross_section
+    // Hint: use NVDBGrid::max_value() to fetch the maximum density value in volume
+
+    return 1.f;
 }
 
 std::tuple<bool, float> Volume::sample_raymarching(const Ray& ray) const {
-    throw std::runtime_error(
-        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
-    );
+    // clip ray against volume AABB
+    const auto [hit, near, far] = intersect(ray);
+    if (!hit) return {false, ray.tnear};
+    // transform ray to index-space
+    const glm::vec3 ipos = world_to_index(glm::vec4(ray.org, 1.f));
+    const glm::vec3 idir = world_to_index(glm::vec4(ray.dir, 0.f)); // non-normalized!
+
+    // TODO: ASSIGNMENT5: implement volume sampling using ray marching in the ray segment [near, far]
+    // Hint: see the class members raymarch_dt, absorption_cross_section and scattering_cross_section
+    // Hint: use NVDBGrid::lookup_density*() to fetch density values from the index-space grid
+    // Hint: randomly offset the start position using RNG::uniform<float>() to avoid banding artifacts
+
+    return {false, ray.tfar};
 }
 
 std::tuple<bool, float> Volume::sample_delta_tracking(const Ray& ray) const {
-    throw std::runtime_error(
-        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
-    );
+    // clip ray against volume AABB
+    const auto [hit, near, far] = intersect(ray);
+    if (!hit) return {false, ray.tfar};
+    // transform ray to index-space
+    const glm::vec3 ipos = world_to_index(glm::vec4(ray.org, 1.f));
+    const glm::vec3 idir = world_to_index(glm::vec4(ray.dir, 0.f)); // non-normalized!
+
+    // TODO: ASSIGNMENT5: implement volume sampling using delta tracking in the ray segment [near, far]
+    // Hint: see the class members absorption_cross_section and scattering_cross_section
+    // Hint: use NVDBGrid::lookup_density*() to fetch density values from the index-space grid
+    // Hint: use NVDBGrid::max_value() to fetch the maximum density value in volume
+
+    return {false, ray.tfar};
 }
 
 float Volume::transmittance(const Ray& ray) const {

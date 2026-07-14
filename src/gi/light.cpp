@@ -36,17 +36,22 @@ std::tuple<glm::vec3, Ray, float> AreaLight::sample_Li(const glm::vec3& position
 
 float AreaLight::pdf_Li(const SurfaceHit& light, const Ray& ray) const {
     assert(light.valid && light.mesh && light.area > 0);
-    // TODO ASSIGNMENT4 MIS: compute the PDF (solid angle) of the given light source sample from given ray
-    // note: the distance is given via ray.tfar
-    return 0.f;
+    const float cos_t = dot(light.N, -ray.dir);
+    if (cos_t <= 0.f) return 0.f;
+    return (ray.tfar * ray.tfar) / (cos_t * light.area);
 }
 
 std::tuple<glm::vec3, Ray, glm::vec3, float, float> AreaLight::sample_Le(
     const glm::vec2& sample_pos, const glm::vec2& sample_dir
 ) const {
-    throw std::runtime_error(
-        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
-    );
+    STAT("sampleLe");
+    const auto [light, pdf_sample] = mesh.sample(sample_pos);
+    if (pdf_sample <= 0.f) return {glm::vec3(0), Ray(), glm::vec3(0), 0.f, 0.f};
+    const glm::vec3 dir = light.to_world(cosine_sample_hemisphere(sample_dir));
+    const float pdf_pos = pdf_sample / light.area;
+    const float pdf_dir = cosine_hemisphere_pdf(glm::dot(light.N, dir));
+    assert(std::isfinite(pdf_pos) && std::isfinite(pdf_dir));
+    return {light.Le(), Ray(light.P, dir), light.N, pdf_pos, pdf_dir};
 }
 
 std::tuple<float, float> AreaLight::pdf_Le(const SurfaceHit& light, const glm::vec3& dir) const {
@@ -114,11 +119,10 @@ std::tuple<glm::vec3, Ray, float> SkyLight::sample_Li(const glm::vec3& position,
 }
 
 float SkyLight::pdf_Li(const SurfaceHit& light, const Ray& ray) const {
-    // TODO ASSIGNMENT4: compute the PDF (solid angle) of the escaped ray for MIS
-    // Hint: you may use Distribution2D::pdf
     const glm::vec2 theta_phi = to_spherical(ray.dir);
     const float sin_t = sinf(theta_phi.x);
-    return 0.f;
+    if (sin_t <= 0.f) return 0.f;
+    return distribution->pdf(glm::vec2(theta_phi.y * INV2PI, theta_phi.x * INVPI)) / (2.f * PI * PI * sin_t);
 }
 
 glm::vec3 SkyLight::Le(const Ray& ray) const {
@@ -129,9 +133,27 @@ glm::vec3 SkyLight::Le(const Ray& ray) const {
 std::tuple<glm::vec3, Ray, glm::vec3, float, float> SkyLight::sample_Le(
     const glm::vec2& sample_pos, const glm::vec2& sample_dir
 ) const {
-    throw std::runtime_error(
-        "Function not implemented: " + std::string(__FILE__) + ", line: " + std::to_string(__LINE__)
-    );
+    assert(texture && distribution);
+    STAT("sampleLe");
+    // draw sample and convert to direction
+    const auto [uv, sample_pdf] = distribution->sample_01(sample_pos);
+    if (sample_pdf <= 0.f) return {glm::vec3(0), Ray(), glm::vec3(0), 0.f, 0.f};
+    // convert to spherical coordinates
+    const float theta = uv.y * PI, phi = uv.x * 2 * PI;
+    // map to unit sphere
+    const float cos_theta = cosf(theta), sin_theta = sinf(theta);
+    if (sin_theta <= 0.f) return {glm::vec3(0), Ray(), glm::vec3(0), 0.f, 0.f};
+    const glm::vec3 dir(sin_theta * cosf(phi), cos_theta, sin_theta * sinf(phi));
+    // sample disk approximation of scene
+    const auto [T, B] = build_tangent_frame(-dir);
+    const glm::vec2 disk_sample = concentric_sample_disk(sample_dir);
+    const glm::vec3 out = scene_center + scene_radius * dir;
+    const glm::vec3 orig = out + scene_radius * (disk_sample.x * T + disk_sample.y * B);
+    // compute pdfs
+    const float pdf_pos = sample_pdf / (2.f * PI * PI * sin_theta);
+    const float pdf_dir = 1.f / (PI * scene_radius * scene_radius);
+    assert(std::isfinite(pdf_pos) && std::isfinite(pdf_dir));
+    return {texture->env(dir) * intensity, Ray(orig, -dir), -dir, pdf_pos, pdf_dir};
 }
 
 std::tuple<float, float> SkyLight::pdf_Le(const SurfaceHit& light, const glm::vec3& dir) const {
